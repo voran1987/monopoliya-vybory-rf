@@ -314,7 +314,7 @@ function mark(){
     return `<li class="${k===S.cur?'on':''}">${team(k)}<input id="nm${k}" ${viewer?'readonly':''} value="${names[k]}" aria-label="Название команды ${k+1}"><span class="small">округов: ${n}</span><b>${t.score}</b></li>`}).join('');
   S.teams.forEach((_,k)=>{$('#nm'+k).oninput=e=>{if(viewer)return;names[k]=e.target.value;push();$('#turn').innerHTML=team(S.cur)+' '+names[S.cur]}});
   $('#turn').innerHTML=team(S.cur)+' '+names[S.cur];
-  const off=!!S.offer||!!S.debt;$('#sell').disabled=busy||S.pending||off;$('#trade').disabled=busy||S.pending||off||S.teams.length<2;$('#roll').disabled=busy||S.rolled||off;$('#end').disabled=busy||!S.rolled||S.pending||off;
+  const off=!!S.offer||!!S.debt;$('#sell').disabled=busy||S.pending||off;$('#trade').disabled=busy||S.pending||!!S.offer||S.teams.length<2;$('#roll').disabled=busy||S.rolled||off;$('#end').disabled=busy||!S.rolled||S.pending||off;
   $('#log').innerHTML=S.log.slice(0,30).map(l=>`<li>${l}</li>`).join('');
   follow();push();
 }
@@ -444,17 +444,19 @@ function charge(k,amount,to,reason){
   S.debt={k,amount,to,reason};log(`${names[k]} должна заплатить ${amount} (${reason}): нужно продать округа`);showDebt();return false}
 function showDebt(){
   const d=S.debt;if(!d)return;const k=d.k,list=mine(k);
-  $('#card').innerHTML=bank('Долг','Нужно расплатиться')+`<p>${team(k)} <b>${names[k]}</b> должна заплатить ${d.to>=0?names[d.to]:'банку'} <b>${d.amount}</b> (${d.reason}). У команды ${S.teams[k].score}. Продайте округа банку за половину цены, пока мандатов не хватит.</p>`+
+  $('#card').innerHTML=bank('Долг','Нужно расплатиться')+`<p>${team(k)} <b>${names[k]}</b> должна заплатить ${d.to>=0?names[d.to]:'банку'} <b>${d.amount}</b> (${d.reason}). У команды ${S.teams[k].score}. Продайте округа банку за половину цены или обменяйте имущество с другой командой кнопкой «Обмен», пока мандатов не хватит.</p>`+
     list.map(i=>`<div class="trow"><span>${C[i][2]} <span class="small">(цена ${price(i)})</span></span><button class="btn alt" data-cmd="dsell" data-i="${i}">Продать за ${sellPrice(i)}</button></div>`).join('');
   $('#card').querySelectorAll('button[data-cmd="dsell"]').forEach(b=>b.onclick=()=>debtSell(+b.dataset.i))}
-function debtSell(i){
-  const d=S.debt;if(!d||!Number.isInteger(i))return;const k=d.k;if(S.owner[i]!==k)return;
-  S.owner[i]=-1;add(k,sellPrice(i));log(`${names[k]} продаёт «${C[i][2]}» банку, чтобы расплатиться (+${sellPrice(i)})`);
-  const done=m=>{S.debt=null;log(m);card(selected);$('#card').insertAdjacentHTML('afterbegin',`<div class="verdict">${m}</div>`)};
+function settleDebt(note){
+  const d=S.debt;if(!d)return;const k=d.k;
+  const done=m=>{S.debt=null;log(m);card(selected);$('#card').insertAdjacentHTML('afterbegin',(note?`<div class="verdict">${note}</div>`:'')+`<div class="verdict">${m}</div>`)};
   if(S.teams[k].score>=d.amount){add(k,-d.amount);if(d.to>=0)add(d.to,d.amount);done(`${names[k]} расплатилась: ${d.amount} (${d.reason}).`)}
   else if(!mine(k).length){const r=S.teams[k].score;add(k,-r);if(d.to>=0)add(d.to,r);done(`${names[k]} отдала всё, что осталось (${r}). Долг ${d.amount} покрыт не полностью.`)}
-  else showDebt();
-  mark()}
+  else{showDebt();if(note)$('#card').insertAdjacentHTML('afterbegin',`<div class="verdict">${note}</div>`)}}
+function debtSell(i){
+  const d=S.debt;if(!d||!Number.isInteger(i)||S.offer)return;const k=d.k;if(S.owner[i]!==k)return;
+  S.owner[i]=-1;add(k,sellPrice(i));log(`${names[k]} продаёт «${C[i][2]}» банку, чтобы расплатиться (+${sellPrice(i)})`);
+  settleDebt();mark()}
 const sellPrice=i=>Math.max(1,Math.floor(price(i)/2));
 const mine=k=>S.owner.map((o,i)=>o===k?i:-1).filter(i=>i>=0);
 const bank=(t,h)=>`<div class="hd" style="--g:var(--ink);--hc:var(--bg)"><small>${t}</small><h2>${h}</h2></div>`;
@@ -462,7 +464,7 @@ const isTeam=()=>myTeam>=0;
 const actor=()=>isTeam()?myTeam:S.cur;
 const lstOf=(a,m)=>[...a.map(i=>`«${C[i][2]}»`),...(m?[`${m} мандатов`]:[])].join(', ')||'ничего';
 const ints=a=>(Array.isArray(a)?a:[]).map(Number).filter(x=>Number.isInteger(x)&&x>=0&&x<40);
-function closeUI(){uiMode=null;if(isTeam()&&lastSnap)applySnap(lastSnap);else card(selected)}
+function closeUI(){uiMode=null;if(isTeam()&&lastSnap)applySnap(lastSnap);else if(S.debt)showDebt();else card(selected)}
 function sellDo(k,i){
   if(!Number.isInteger(i)||busy||S.pending||S.offer||S.debt||S.owner[i]!==k)return false;
   S.owner[i]=-1;add(k,sellPrice(i));log(`${names[k]} продаёт «${C[i][2]}» банку (+${sellPrice(i)})`);mark();return true}
@@ -477,7 +479,7 @@ function sellUI(){
   $('#uiclose').onclick=closeUI;
 }
 function makeOffer(k,t,gi,ri,gm,rm){
-  if(busy||S.pending||S.offer||S.debt)return 'Сейчас нельзя: дождитесь окончания вопроса, расчёта или ответа на предложение.';
+  if(busy||S.pending||S.offer||(S.debt&&S.debt.k!==k))return 'Сейчас нельзя: дождитесь окончания вопроса, расчёта или ответа на предложение.';
   if(t===k||!S.teams[t])return 'Выберите партнёра.';
   gi=ints(gi);ri=ints(ri);gm=Math.max(0,Math.floor(+gm||0));rm=Math.max(0,Math.floor(+rm||0));
   if(!gi.length&&!ri.length&&!gm&&!rm)return 'Выберите, что обменивать.';
@@ -499,11 +501,12 @@ function resolveOffer(ok,wd){
       log(`Обмен: ${names[k]} (${lstOf(o.gi,o.gm)}) ⇄ ${names[t]} (${lstOf(o.ri,o.rm)})`);
       $('#card').innerHTML=bank('Обмен','Обмен состоялся')+`<div class="verdict">Договор исполнен: округа и мандаты перешли к новым владельцам.</div>`+wantHtml();wantBind()}
   }else{log(wd?`${names[k]} отзывает предложение обмена`:`${names[t]} отклоняет обмен с ${names[k]}`);card(selected)}
+  if(S.debt)settleDebt(ok?'Обмен состоялся.':'Обмен не состоялся.');
   mark();
 }
 function tradeUI(){
   if(S.teams.length<2)return;
-  if(!isTeam()){if(busy||S.pending||S.offer||S.debt)return;closeQ()}
+  if(!isTeam()){if(busy||S.pending||S.offer)return;closeQ()}
   uiMode='trade';const k=actor();
   const others=S.teams.map((_,j)=>j).filter(j=>j!==k);
   $('#card').innerHTML=bank('Обмен','Обмен между командами')+
@@ -549,7 +552,7 @@ function teamControls(o){
   const my=myTeam,turn=S.cur===my,off=!!S.offer||!!S.debt,bz=!!o.busy;
   $('#roll').disabled=!(turn&&!S.rolled&&!S.pending&&!off&&!bz);
   $('#end').disabled=!(turn&&S.rolled&&!S.pending&&!off&&!bz);
-  $('#sell').disabled=!!(bz||S.pending||off);$('#trade').disabled=!!(bz||S.pending||off||S.teams.length<2);
+  $('#sell').disabled=!!(bz||S.pending||off);$('#trade').disabled=!!(bz||S.pending||S.offer||S.teams.length<2||(S.debt&&S.debt.k!==my));
   const q=$('#qlay');if(q)q.classList.toggle('ro',!turn);
   document.querySelectorAll('#card [data-cmd="buy"],#card [data-cmd="skipbuy"]').forEach(b=>b.hidden=!turn);
   if(S.debt)document.querySelectorAll('#card [data-cmd="dsell"],#card .trow').forEach(b=>{if(b.matches('button'))b.hidden=my!==S.debt.k});
@@ -560,7 +563,7 @@ function teamControls(o){
 function applySnap(o){
   lastSnap=o;S={dch:[],dcc:[],offer:null,debt:null,want:null,...o.S};names=o.names;selected=o.selected;
   $('#d1').textContent=o.d1;$('#d2').textContent=o.d2;mark();
-  if(isTeam()&&((S.offer&&S.offer.to===myTeam)||(S.debt&&S.debt.k===myTeam)))uiMode=null;
+  if(isTeam()&&((S.offer&&S.offer.to===myTeam)||(S.debt&&S.debt.k===myTeam&&uiMode!=='trade')))uiMode=null;
   if(!(isTeam()&&uiMode))$('#card').innerHTML=o.card;
   if(o.q){let d=$('#qlay');if(!d){d=document.createElement('section');d.className='panel card qlay';d.id='qlay';$('#board').appendChild(d)}d.innerHTML=o.q}
   else{const d=$('#qlay');if(d)d.remove()}
@@ -570,8 +573,8 @@ function restore(o){
   S={offer:null,debt:null,want:null,...o.S,pending:false,dch:shuffle(CHANCE.map((_,k)=>k)),dcc:shuffle(CHEST.map((_,k)=>k))};names=o.names;selected=o.selected;
   $('#nteams').value=S.teams.length;build();$('#d1').textContent=o.d1;$('#d2').textContent=o.d2;mark();$('#card').innerHTML=o.card;
   wantBind();
-  if(S.offer)showOffer();
   if(S.debt)showDebt();
+  if(S.offer)showOffer();
 }
 function runCmd(t,c){
   if(viewer||!S||!S.teams[t]||!c||typeof c.act!=='string')return;
