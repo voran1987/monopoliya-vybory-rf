@@ -132,6 +132,8 @@ body.team .qlay.ro button{pointer-events:none;opacity:.6}
 body.team .btn:disabled{opacity:.35}
 #mode{font-weight:700}
 @media(max-width:700px){.qlay{position:fixed;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));top:max(12px,env(safe-area-inset-top,0px));max-height:calc(100% - 24px);z-index:50;box-shadow:0 0 0 100vmax rgba(0,0,0,.5)}}
+.bw{min-width:0;max-width:100%}
+@media(max-width:900px){.bw{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px}.bw .board{width:820px;max-width:none;margin:0}}
 .trow{display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap;padding:6px 0;border-bottom:1px dotted var(--muted)}
 .tfs{border:2px solid var(--line);padding:8px 10px;margin:10px 0;min-width:0}
 .tfs legend{font-family:var(--f-disp);font-size:.9rem;padding:0 6px}
@@ -143,7 +145,7 @@ body.team .btn:disabled{opacity:.35}
 </head>
 <body>
 <main class="wrap">
-  <div id="board" class="board" aria-label="Игровое поле"></div>
+  <div class="bw" id="bw"><div id="board" class="board" aria-label="Игровое поле"></div></div>
   <aside class="side">
     <div class="small" id="mode" role="status"></div>
     <section class="panel card" id="card" aria-live="polite"></section>
@@ -314,8 +316,15 @@ function mark(){
   $('#turn').innerHTML=team(S.cur)+' '+names[S.cur];
   const off=!!S.offer;$('#sell').disabled=busy||S.pending||off;$('#trade').disabled=busy||S.pending||off||S.teams.length<2;$('#roll').disabled=busy||S.rolled||off;$('#end').disabled=busy||!S.rolled||S.pending||off;
   $('#log').innerHTML=S.log.slice(0,30).map(l=>`<li>${l}</li>`).join('');
-  push();
+  follow();push();
 }
+
+let lastFollow=-1,followT=null;
+function follow(){
+  if(!window.matchMedia||!matchMedia('(max-width:900px)').matches||!S||!S.teams[S.cur])return;
+  const pos=S.teams[S.cur].pos;if(pos===lastFollow)return;lastFollow=pos;
+  clearTimeout(followT);followT=setTimeout(()=>{const el=document.getElementById('c'+pos);
+    if(el&&el.scrollIntoView)el.scrollIntoView({block:'center',inline:'center',behavior:'smooth'})},350)}
 function log(t){S.log.unshift(t)}
 function add(k,d){S.teams[k].score=Math.max(0,S.teams[k].score+d)}
 function head(i){const c=C[i];let g='var(--ink)',hc='var(--bg)',lab='';
