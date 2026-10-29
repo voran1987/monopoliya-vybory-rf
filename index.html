@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>:root{color-scheme:light}[hidden]{display:none!important}</style>
+<title>Монополия: выборы в России</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=PT+Sans:wght@400;700&family=PT+Sans+Narrow:wght@400;700&family=Russo+One&display=swap">
+<style>
+/* Раскладка: квадратное поле 11×11 слева, справа панель карточки и счёта; на телефоне панель под полем */
+:root{
+  --bg:#e9efe6; --ink:#17261d; --muted:#5a6b60; --board:#cfe3cf; --cell:#f4f8ef; --line:#17261d;
+  --panel:#fbfdf8; --accent:#c8321f; --accent-ink:#fff; --ok:#1d7a45; --bad:#b3261e;
+  --g-brown:#8c5a3c; --g-lblue:#8fd0ee; --g-pink:#d6439a; --g-orange:#ee8a1e; --g-red:#d62b2b;
+  --g-yellow:#f2cf1d; --g-green:#1f9d55; --g-dblue:#1f45a8; --g-rail:#2b2f2c; --g-util:#9aa79f;
+  --t1:#d62b2b; --t2:#1f45a8; --t3:#1f9d55; --t4:#e29b00;
+  --f-disp:"Russo One","PT Sans",Arial,sans-serif; --f-body:"PT Sans",Arial,sans-serif; --f-nar:"PT Sans Narrow","PT Sans",Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#101a14; --ink:#e6efe6; --muted:#9db2a4; --board:#1b2e22; --cell:#233a2b; --line:#7d9786;
+  --panel:#18281e; --accent:#ff6b4f; --accent-ink:#1a0a05; --ok:#52c982; --bad:#ff8a80;
+  --g-brown:#b07a58; --g-lblue:#6fb9de; --g-pink:#e262b0; --g-orange:#f29a3a; --g-red:#ea4a4a;
+  --g-yellow:#f2cf1d; --g-green:#2fb96b; --g-dblue:#5b7be0; --g-rail:#c9d3cc; --g-util:#7d9786;
+  --t1:#ff6b5f; --t2:#6f93ff; --t3:#43c47d; --t4:#ffc233; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#101a14; --ink:#e6efe6; --muted:#9db2a4; --board:#1b2e22; --cell:#233a2b; --line:#7d9786;
+  --panel:#18281e; --accent:#ff6b4f; --accent-ink:#1a0a05; --ok:#52c982; --bad:#ff8a80;
+  --g-brown:#b07a58; --g-lblue:#6fb9de; --g-pink:#e262b0; --g-orange:#f29a3a; --g-red:#ea4a4a;
+  --g-yellow:#f2cf1d; --g-green:#2fb96b; --g-dblue:#5b7be0; --g-rail:#c9d3cc; --g-util:#7d9786;
+  --t1:#ff6b5f; --t2:#6f93ff; --t3:#43c47d; --t4:#ffc233; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.45 var(--f-body);margin:0;
+  padding-block:20px 32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:20px}
+@media(min-width:1000px){.wrap{grid-template-columns:minmax(0,1fr) 360px;align-items:start}}
+h1,h2,h3{font-family:var(--f-disp);font-weight:400;margin:0;text-wrap:balance}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+/* поле */
+.board{container-type:inline-size;width:100%;max-width:880px;aspect-ratio:1;margin:0 auto;display:grid;
+  grid-template-columns:1.5fr repeat(9,1fr) 1.5fr;grid-template-rows:1.5fr repeat(9,1fr) 1.5fr;
+  background:var(--board);border:3px solid var(--line);position:relative}
+.cell{border:1px solid var(--line);background:var(--cell);display:flex;position:relative;min-width:0;min-height:0;
+  padding:0;color:var(--ink);text-align:center;font-family:var(--f-nar);overflow:hidden}
+.cell:hover{filter:brightness(1.06)}
+.s-b{flex-direction:column}.s-t{flex-direction:column-reverse}.s-l{flex-direction:row-reverse}.s-r{flex-direction:row}
+.band{background:var(--g,transparent);flex:none;position:relative}
+.s-b .band,.s-t .band{height:22%}.s-l .band,.s-r .band{width:22%}
+.body{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:2% 3%;gap:2px}
+.nm{font-size:1.08cqw;font-weight:700;line-height:1.1;overflow-wrap:anywhere;max-width:100%;padding-top:1.3cqw}
+.sl{font-size:1.05cqw;padding-bottom:2.6cqw;color:var(--muted);line-height:1}
+.idx{position:absolute;top:1px;left:3px;font-size:.95cqw;line-height:1;font-weight:700;color:var(--ink);opacity:.7}
+.cell.rail{background:linear-gradient(var(--cell),var(--cell))}
+.cell.ch .nm,.cell.cc .nm{color:var(--accent);font-size:1.5cqw}
+.cell.tx{background:repeating-linear-gradient(135deg,var(--cell) 0 6px,var(--board) 6px 12px)}
+.corner .nm{font-family:var(--f-disp);font-weight:400;font-size:1.65cqw;color:var(--accent)}
+.corner .body{justify-content:center;gap:4px;padding:6%}
+.owner{position:absolute;right:3px;bottom:3px;width:1.9cqw;height:1.9cqw;min-width:9px;min-height:9px;border-radius:50%;border:2px solid var(--ink)}
+.tks{position:absolute;left:0;right:0;bottom:2%;display:flex;gap:2px;flex-wrap:wrap;justify-content:center;pointer-events:none}
+.tk{width:2.6cqw;height:2.6cqw;min-width:12px;min-height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1.5px var(--ink);transition:transform .15s}
+.cell.sel{outline:3px solid var(--accent);outline-offset:-3px;z-index:2}
+/* центр */
+.center{grid-column:2/11;grid-row:2/11;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3cqw;padding:3cqw;text-align:center}
+.banner{background:var(--accent);color:var(--accent-ink);font-family:var(--f-disp);padding:1.6cqw 4cqw;transform:rotate(-5deg);
+  font-size:5.6cqw;line-height:1;letter-spacing:.04em;border:3px solid var(--ink);box-shadow:5px 5px 0 var(--ink)}
+.lead{font-size:1.9cqw;color:var(--muted);max-width:46cqw;margin:0}
+.dice{display:flex;gap:2cqw}
+.die{width:8cqw;height:8cqw;border:3px solid var(--ink);border-radius:1.4cqw;background:var(--panel);font-family:var(--f-disp);font-size:4.6cqw;
+  display:grid;place-items:center;font-variant-numeric:tabular-nums}
+.die.roll{animation:wob .12s infinite}
+@keyframes wob{50%{transform:rotate(9deg) scale(.95)}}
+.turn{display:flex;align-items:center;gap:1.2cqw;font-family:var(--f-disp);font-size:2.4cqw}
+.dot{display:inline-block;width:1.15em;height:1.15em;border-radius:50%;border:2px solid var(--ink);flex:none}
+.btns{display:flex;gap:1.2cqw;flex-wrap:wrap;justify-content:center}
+.btn{background:var(--ink);color:var(--bg);border:0;border-radius:6px;padding:1.2cqw 2.6cqw;font-weight:700;font-size:max(14px,1.9cqw)}
+.btn.alt{background:transparent;color:var(--ink);border:2px solid var(--ink)}
+.btn.hot{background:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+@container (max-width:600px){
+  .nm,.sl{display:none}.idx{font-size:9px;position:static;margin:auto}.body{justify-content:center}
+  .cell.ch .nm,.cell.cc .nm{display:block;font-size:0;padding:0}.cell.ch .nm::before{content:'?';font-size:16px}.cell.cc .nm::before{content:'★';font-size:14px}.corner .nm{display:block;font-size:6.5px;padding:0;overflow-wrap:anywhere}
+  .lead{display:none}.banner{font-size:6.4cqw}}
+/* панель */
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--panel);border:2px solid var(--line);padding:16px}
+.card .hd{margin:-16px -16px 12px;padding:12px 16px;background:var(--g,var(--ink));color:var(--hc,#fff);border-bottom:2px solid var(--line)}
+.card .hd small{display:block;font-family:var(--f-nar);font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;opacity:.85}
+.card h2{font-size:1.25rem;line-height:1.15;margin-top:2px}
+.card p{margin:.4em 0}.card .src{color:var(--muted);font-size:.85rem;margin-top:10px}
+.card table{border-collapse:collapse;width:100%;margin:.5em 0;font-size:.92rem;font-variant-numeric:tabular-nums}
+.card td,.card th{border:1px solid var(--line);padding:3px 6px;text-align:left}
+.card .act{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.card .ans{background:var(--board);border-left:4px solid var(--accent);padding:8px 10px;margin-top:10px}
+.score{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.score li{display:flex;align-items:center;gap:10px;padding:6px 8px;border:2px solid transparent}
+.score li.on{border-color:var(--accent);background:var(--board)}
+.score b{margin-left:auto;font-family:var(--f-disp);font-weight:400;font-size:1.3rem;font-variant-numeric:tabular-nums}
+.score input{font:inherit;color:inherit;background:transparent;border:0;border-bottom:1px dashed var(--muted);width:9em;min-width:0}
+.panel h3{font-size:1rem;margin-bottom:8px;letter-spacing:.03em}
+.log{margin:0;padding:0;list-style:none;font-size:.9rem;max-height:170px;overflow:auto;color:var(--muted)}
+.log li{padding:2px 0;border-bottom:1px dotted var(--muted)}.log li:first-child{color:var(--ink)}
+.cfg{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.9rem}
+.cfg select{font:inherit;color:inherit;background:var(--cell);border:2px solid var(--line);padding:3px 6px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:.82rem;font-family:var(--f-nar)}
+.legend i{display:inline-block;width:.9em;height:.9em;margin-right:4px;border:1px solid var(--line);vertical-align:-1px}
+.side .btn{padding:7px 14px;font-size:.95rem}
+.opts{display:grid;gap:8px;margin:12px 0 0}
+.opt{text-align:left;background:var(--cell);color:var(--ink);border:2px solid var(--line);padding:9px 11px;font:inherit;line-height:1.3}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt:disabled{cursor:default}
+.opt.right{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 20%,var(--cell));font-weight:700}
+.opt.wrong{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 18%,var(--cell))}
+.opt.dim{opacity:.55}
+.price{display:inline-block;background:var(--ink);color:var(--bg);padding:1px 8px;font-family:var(--f-disp);font-size:.85rem;margin-right:6px}
+.verdict{margin-top:12px;padding:8px 10px;border-left:4px solid var(--ok);background:var(--board);font-weight:700}
+.verdict.bad{border-left-color:var(--bad)}
+.rank{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.rank td,.rank th{border-bottom:1px solid var(--line);padding:5px 6px;text-align:left}
+.small{font-size:.85rem;color:var(--muted)}
+.qlay{grid-column:2/11;grid-row:2/11;z-index:5;overflow:auto;margin:0;min-height:0;font-size:1rem}
+.qlay .btn{padding:7px 14px;font-size:.95rem}
+@container (max-width:600px){.qlay{grid-column:1/-1;grid-row:1/-1}}
+.x2{position:absolute;right:calc(1.9cqw + 8px);bottom:2px;font-family:var(--f-disp);font-size:max(9px,1.3cqw);color:var(--accent);line-height:1}
+.trow{display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap;padding:6px 0;border-bottom:1px dotted var(--muted)}
+.tfs{border:2px solid var(--line);padding:8px 10px;margin:10px 0;min-width:0}
+.tfs legend{font-family:var(--f-disp);font-size:.9rem;padding:0 6px}
+.chk{display:flex;gap:8px;align-items:center;padding:2px 0}
+.num{font:inherit;color:inherit;background:var(--cell);border:2px solid var(--line);padding:3px 6px;width:5em}
+.sel2{font:inherit;color:inherit;background:var(--cell);border:2px solid var(--line);padding:3px 6px;max-width:100%}
+@media(prefers-reduced-motion:reduce){.die.roll{animation:none}.tk{transition:none}}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div id="board" class="board" aria-label="Игровое поле"></div>
+  <aside class="side">
+    <section class="panel card" id="card" aria-live="polite"></section>
+    <section class="panel"><h3>МАНДАТЫ</h3><ul class="score" id="score"></ul>
+      <div class="cfg" style="margin-top:10px"><label for="nteams">Команд:</label>
+        <select id="nteams"><option>2</option><option selected>3</option><option>4</option></select>
+        <button class="btn alt" id="sell" style="padding:4px 10px;font-size:.85rem">Продать банку</button>
+        <button class="btn alt" id="trade" style="padding:4px 10px;font-size:.85rem">Обмен</button>
+        <button class="btn alt" id="finish" style="padding:4px 10px;font-size:.85rem">Подвести итоги</button>
+        <button class="btn alt" id="reset" style="padding:4px 10px;font-size:.85rem">Начать заново</button></div></section>
+    <section class="panel"><h3>ЖУРНАЛ ХОДОВ</h3><ul class="log" id="log"></ul></section>
+    <section class="panel"><h3>ГРУППЫ ОКРУГОВ</h3><div class="legend" id="legend"></div></section>
+  </aside>
+</main>
+<script>
+const G={brown:['Правовая основа','--g-brown'],lblue:['Избирательные права','--g-lblue'],pink:['Выборы Президента','--g-pink'],
+orange:['Выборы в Госдуму','--g-orange'],red:['Эволюция системы','--g-red'],yellow:['Реформы 2006–2020','--g-yellow'],
+green:['Итоги выборов','--g-green'],dblue:['Госдума 2026','--g-dblue'],rail:['Избирательные комиссии','--g-rail'],util:['Организация голосования','--g-util']};
+const DARKTXT=['lblue','yellow','util'];
+const PR={brown:2,lblue:2,pink:3,orange:3,red:4,yellow:4,green:5,dblue:6,rail:3,util:2};
+// тип, группа, название, подпись, справка, источник, вопрос, варианты (первый — верный)
+const C=[
+['c','','СТАРТ','Выборы назначены','<p>Решение о назначении выборов открывает избирательный процесс. Каждый проход через старт даёт <b>+2 мандата</b>.</p>'],
+['p','brown','Конституция РФ','ст. 3 и 32','<p>Высшим непосредственным выражением власти народа являются референдум и свободные выборы (ст. 3). Граждане вправе избирать и быть избранными (ст. 32).</p>','Конституция РФ, 1993',
+ 'Кто по Конституции РФ не имеет права избирать и быть избранным?',['Признанные судом недееспособными и содержащиеся в местах лишения свободы по приговору суда','Лица старше 70 лет','Государственные служащие','Граждане без постоянной регистрации']],
+['cc','','Казна','','',''],
+['p','brown','Закон 67-ФЗ','об основных гарантиях','<p>Федеральный закон № 67-ФЗ от 12 июня 2002 г. «Об основных гарантиях избирательных прав и права на участие в референдуме граждан Российской Федерации». Выборы Президента и депутатов Госдумы регулируют отдельные федеральные законы.</p>','',
+ 'Какой федеральный закон 2002 года устанавливает общие гарантии избирательных прав граждан?',['«Об основных гарантиях избирательных прав и права на участие в референдуме»','«О политических партиях»','«О средствах массовой информации»','«Об общественных объединениях»']],
+['tx','','Отказ в регистрации','подписи −2','<p>Выдвижение требует сбора подписей и регистрации. Недостоверные подписи в подписных листах — частая причина отказа в регистрации.</p><p><b>Подписи забракованы: −2 мандата.</b></p>'],
+['r','rail','ЦИК России','федеральный уровень','<p>Центральная избирательная комиссия состоит из 15 членов, по пять назначают Госдума, Совет Федерации и Президент. Срок полномочий — 5 лет. ЦИК организует федеральные выборы и устанавливает их итоги. Председатель — Элла Памфилова.</p>','',
+ 'Сколько членов в ЦИК России и кто их назначает?',['15: по пять назначают Госдума, Совет Федерации и Президент','12: все назначает Президент','10: избирают граждане на выборах','15: назначает Правительство']],
+['p','lblue','Активное право','с 18 лет','<p>Активное избирательное право — право избирать. Принадлежит гражданам РФ, достигшим 18 лет, кроме признанных судом недееспособными и содержащихся в местах лишения свободы по приговору суда.</p>','',
+ 'С какого возраста гражданин РФ имеет право голосовать на выборах?',['С 18 лет','С 16 лет','С 21 года','С 25 лет']],
+['ch','','Шанс','','',''],
+['p','lblue','Пассивное право','быть избранным','<p>Пассивное избирательное право — право быть избранным. Депутатом Государственной Думы может быть избран гражданин не моложе 21 года (ст. 97 Конституции), Президентом — не моложе 35 лет.</p>','',
+ 'С какого возраста можно быть избранным депутатом Государственной Думы?',['С 21 года','С 18 лет','С 25 лет','С 30 лет']],
+['p','lblue','Совет Федерации','не избирается напрямую','<p>В Совет Федерации входят по два представителя от каждого субъекта РФ (от законодательного и от исполнительного органа государственной власти) и представители Президента.</p>','',
+ 'Как формируется Совет Федерации?',['По два представителя от субъекта РФ плюс представители Президента','Прямым голосованием по партийным спискам','Половина избирается по округам, половина по спискам','Его избирает Государственная Дума']],
+['c','','ЗОНА РИСКА','стадии процесса','<p>Каждая стадия — зона риска для честности выборов: назначение, округа и комиссии, выдвижение и регистрация, агитация, голосование и подсчёт, итоги. Сюда попадают нарушители с клетки 30.</p>'],
+['p','pink','Кандидат в Президенты','35 и 25 лет','<p>Президентом может быть гражданин РФ не моложе 35 лет, постоянно проживающий в России не менее 25 лет, не имеющий и не имевший иностранного гражданства либо вида на жительство (ст. 81).</p>','',
+ 'Каковы требования к возрасту и проживанию кандидата в Президенты РФ?',['Не моложе 35 лет и постоянное проживание в РФ не менее 25 лет','Не моложе 30 лет и проживание не менее 15 лет','Не моложе 40 лет и проживание не менее 10 лет','Не моложе 35 лет и проживание не менее 10 лет']],
+['u','util','ГАС «Выборы»','информационная система','<p>Государственная автоматизированная система «Выборы» обеспечивает сбор, передачу и обработку данных о подготовке выборов, ходе голосования и его итогах.</p>','',
+ 'Для чего служит ГАС «Выборы»?',['Для сбора и обработки данных о подготовке выборов, голосовании и итогах','Для регистрации политических партий','Для составления списка кандидатов партией','Для выпуска агитационных материалов']],
+['p','pink','Срок Президента','6 лет, два срока','<p>Президент избирается на 6 лет (срок увеличен с 4 лет, начиная с выборов 2012 г.). Одно и то же лицо не может занимать должность Президента более двух сроков (ст. 81).</p>','',
+ 'На какой срок избирается Президент РФ и сколько сроков он может занимать должность?',['На 6 лет, не более двух сроков','На 4 года, не более двух сроков подряд','На 5 лет, без ограничения числа сроков','На 6 лет, не более трёх сроков']],
+['p','pink','Подписи и второй тур','300 тыс. и 100 тыс.','<p>Самовыдвиженцу нужно собрать 300 тыс. подписей, кандидату от партии, не представленной в Госдуме, — 100 тыс. Парламентские партии подписей не собирают. В первом туре побеждает кандидат, набравший более 50% голосов участников голосования; иначе проводится второй тур между двумя лидерами.</p>','',
+ 'Сколько подписей должен собрать самовыдвиженец для регистрации кандидатом в Президенты?',['300 тысяч','100 тысяч','500 тысяч','1 миллион']],
+['r','rail','Избиркомы регионов','региональный уровень','<p>Избирательные комиссии субъектов РФ организуют региональные выборы и руководят нижестоящими комиссиями на своей территории. Система: ЦИК → комиссии субъектов → территориальные → участковые.</p>','',
+ 'Какая комиссия стоит в системе избирательных комиссий сразу под ЦИК?',['Избирательные комиссии субъектов РФ','Участковые избирательные комиссии','Территориальные комиссии','Общественная палата']],
+['p','orange','Госдума: состав и срок','450 депутатов, 5 лет','<p>Государственная Дума состоит из 450 депутатов и избирается на 5 лет (ст. 95, 96). Срок увеличен с 4 до 5 лет начиная с выборов 2011 г.</p>','',
+ 'Сколько депутатов в Государственной Думе и на какой срок она избирается?',['450 депутатов на 5 лет','450 депутатов на 4 года','400 депутатов на 5 лет','500 депутатов на 6 лет']],
+['cc','','Казна','','',''],
+['p','orange','Система 225 + 225','смешанная параллельная','<p>С 2016 г. 225 депутатов избираются по партийным спискам (пропорционально) и 225 — в одномандатных округах (относительное большинство). Части считаются независимо друг от друга: это параллельная система.</p>','',
+ 'По какой избирательной системе избирается Госдума с 2016 года?',['Смешанная параллельная: 225 по спискам и 225 по округам','Полностью пропорциональная, все 450 по спискам','Полностью мажоритарная, все 450 по округам','Смешанная компенсационная, как в Германии']],
+['p','orange','Барьер 5%','для партийных списков','<p>Партия получает мандаты по спискам, если набрала не менее 5% голосов. Барьер был 5% в 1993–2003 гг., 7% на выборах 2007 и 2011 гг. и снова 5% с 2016 г.</p>','',
+ 'Какой процент голосов нужно набрать партии по спискам, чтобы получить мандаты в Госдуме?',['5%','3%','7%','10%']],
+['c','','ЯВКА','абсентеизм','<p>Явка на выборах в Госдуму: 2016 — 47,88%; 2021 — 51,72%; 2026 — около 59%. Абсентеизм — уклонение избирателей от участия в голосовании. Порог явки в России отменён в 2006 г.</p><p>Бонус за явку: <b>+1 мандат</b>.</p>'],
+['p','red','Выборы 1993–2003','смешанная система','<p>Госдума избиралась по смешанной системе: 225 мест по спискам и 225 в одномандатных округах, барьер 5%.</p>','',
+ 'Как избиралась Государственная Дума в 1993–2003 годах?',['Смешанная система: 225 по спискам и 225 по округам, барьер 5%','Все 450 мест по партийным спискам, барьер 7%','Все 450 мест в одномандатных округах','Выборщиками, по региональным квотам']],
+['ch','','Шанс','','',''],
+['p','red','Выборы 2007 и 2011','все места по спискам','<p>Все 450 мест распределялись по партийным спискам, барьер составлял 7%, одномандатные округа были отменены, избирательные блоки запрещены.</p>','',
+ 'Что изменилось на выборах в Госдуму 2007 и 2011 годов?',['Все 450 мест по партийным спискам, барьер 7%','Барьер снижен до 3%, округа сохранены','Все места распределялись по округам','Введено обязательное голосование']],
+['p','red','Выборы 2016','возврат к смешанной','<p>Вернулась смешанная параллельная система 225 + 225 с барьером 5%. «Единая Россия» получила 343 мандата. Явка составила 47,88%.</p>','',
+ 'Что вернули на выборах в Госдуму 2016 года?',['Одномандатные округа и смешанную систему 225 + 225','Графу «против всех»','Порог явки','Голосование выборщиков']],
+['r','rail','Территориальные комиссии','уровень района, города','<p>Территориальные (окружные) комиссии организуют выборы на уровне района, города или округа и руководят участковыми комиссиями.</p>','',
+ 'Какие комиссии руководят работой участковых комиссий на территории района или города?',['Территориальные (окружные) избирательные комиссии','Центральная избирательная комиссия','Общественная палата','Совет Федерации']],
+['p','yellow','Реформа 2006 года','нет «против всех»','<p>В 2006 г. из бюллетеня исключили графу «против всех» и отменили порог явки: выборы считаются состоявшимися при любой явке.</p>','',
+ 'Что исключили из избирательного законодательства в 2006 году?',['Графу «против всех» и минимальный порог явки','Тайну голосования','Право партий выдвигать кандидатов','Участие наблюдателей']],
+['p','yellow','Многодневное голосование','закон 2020 года','<p>Закон 2020 г. разрешил проводить голосование в течение до трёх дней: Госдума приняла его 21 июля 2020 г. Основная цель — повысить доступность голосования; критики отмечают сложность наблюдения.</p>','',
+ 'Сколько дней допускает закон 2020 года для голосования на выборах?',['До трёх дней','Только один день','До семи дней','До десяти дней']],
+['u','util','Единый день голосования','сентябрь','<p>Единый день голосования проходит в сентябре. В год выборов в Госдуму он совпадает с её голосованием: в 2026 г. — 18–20 сентября.</p>','',
+ 'В каком месяце проходит единый день голосования?',['В сентябре','В марте','В декабре','В июне']],
+['p','yellow','Электронное голосование','ДЭГ','<p>Дистанционное электронное голосование через интернет. На выборах впервые применено в Москве на выборах в Мосгордуму 2019 г. В 2021 г. в Москве так проголосовали около 1,9 млн человек, в 2026 г. по стране — около 7 млн.</p>','',
+ 'Где впервые применили дистанционное электронное голосование на выборах в 2019 году?',['В Москве, на выборах в Мосгордуму','В Татарстане','В Санкт-Петербурге','На Сахалине']],
+['c','','НАРУШЕНИЕ!','в зону риска','<p>Нарушение правил отправляет в клетку 10. Решения и действия комиссий можно обжаловать в вышестоящую комиссию и в суд.</p>'],
+['p','green','Президент 2018','итоги','<p>Владимир Путин победил в первом туре с 76,69% голосов. Явка — 67,54%.</p>','',
+ 'Какой результат показал победитель президентских выборов 2018 года?',['76,69%','87,28%','63,60%','71,30%']],
+['p','green','Госдума 2021','итоги','<p>«Единая Россия» — 49,82% по спискам и 324 мандата. Прошли 5 партий (ЕР, КПРФ, «Справедливая Россия», ЛДПР, «Новые люди»). Явка — 51,72%.</p>','',
+ 'Сколько мандатов получила «Единая Россия» на выборах в Госдуму 2021 года?',['324','343','349','300']],
+['cc','','Казна','','',''],
+['p','green','Президент 2024','итоги','<p>Владимир Путин победил с 87,28% голосов. Голосование проходило 15–17 марта 2024 г., явка составила 77,49%.</p>','',
+ 'Какой результат показал победитель президентских выборов 2024 года?',['87,28%','76,69%','71,30%','63,60%']],
+['r','rail','Участковые комиссии','основа системы','<p>Участковая избирательная комиссия организует голосование на участке, подсчитывает голоса и составляет первичный протокол итогов.</p>','',
+ 'Какая комиссия подсчитывает голоса на избирательном участке?',['Участковая избирательная комиссия','Центральная избирательная комиссия','Территориальная комиссия','Верховный суд']],
+['ch','','Шанс','','',''],
+['p','dblue','Госдума 2026: партии','барьер 5%','<p>Голосование прошло 18–20 сентября 2026 г. Пятипроцентный барьер по спискам преодолели пять партий: «Единая Россия» (около 58%), КПРФ, ЛДПР, «Новые люди» и «Справедливая Россия». По предварительным данным, СР набрала около 5,00%.</p>','',
+ 'Сколько партий преодолели барьер 5% по партийным спискам на выборах в Госдуму 2026 года?',['Пять','Три','Четыре','Шесть']],
+['tx','','Агитация','нарушение −2','<p>Нарушение правил агитации (например, агитация вне установленных сроков или в запрещённых местах) влечёт ответственность.</p><p><b>Штраф: −2 мандата.</b></p>'],
+['p','dblue','Госдума 2026: явка','и онлайн','<p>Явка по данным ЦИК — около 59% (по разным публикациям 59,1–59,3%), больше, чем в 2021 г. (51,72%) и 2016 г. (47,88%). Электронным голосованием воспользовались около 7 млн человек.</p>','',
+ 'Какой была явка на выборах в Госдуму 2026 года по данным ЦИК?',['Около 59%','Около 47%','Около 52%','Около 68%']]
+];
+const CHANCE=[
+['Сколько мест в Госдуме распределяется по партийным спискам?',['225','150','300','450'],'Половина: 225 мест по спискам и 225 в одномандатных округах.'],
+['Кто возглавляет ЦИК России?',['Элла Памфилова','Владимир Чуров','Алексей Венедиктов','Николай Булаев'],'Председатель ЦИК — Элла Памфилова.'],
+['Какой документ называет референдум и свободные выборы высшим непосредственным выражением власти народа?',['Конституция РФ','Гражданский кодекс','Закон о СМИ','Устав ЦИК'],'Это статья 3 Конституции РФ.'],
+['Начиная с выборов какого года Госдума избирается на 5 лет?',['2011','2003','2007','2016'],'Срок Госдумы увеличен с 4 до 5 лет с выборов 2011 года.'],
+['Что нужно для победы в первом туре президентских выборов?',['Более 50% голосов участников голосования','Больше голосов, чем у остальных','Две трети голосов','30% голосов'],'Иначе назначается второй тур между двумя лидерами.'],
+['Кто освобождён от сбора подписей на выборах в Госдуму?',['Партии, представленные в Госдуме','Все партии','Только самовыдвиженцы','Никто, подписи нужны всем'],'Парламентские партии подписей не собирают.'],
+['Что такое абсентеизм?',['Уклонение избирателей от участия в голосовании','Подкуп избирателей','Нарезка округов в пользу одной партии','Голосование вне помещения'],'Абсентеизм бывает апатией, а бывает формой протеста.'],
+['Какой была явка на выборах в Госдуму 2016 года?',['47,88%','51,72%','59,32%','64,00%'],'В 2021 г. явка была 51,72%, в 2026 г. — около 59%.']
+];
+const CHEST=[
+['Наблюдатели партии работают на участках, подсчёт идёт открыто.',1],
+['Подписи в поддержку вашего кандидата признаны недействительными.',-2],
+['Явка выше ожиданий: избиратели активно идут на участки.',1],
+['Ваша жалоба на нарушение при подсчёте удовлетворена комиссией.',2],
+['Нарушены правила агитации: предупреждение и штраф.',-1],
+['Проведено обучение членов участковых комиссий.',1],
+['Электронное голосование: удобство и охват или риски для доверия? Обсудите в команде.',0]
+];
+const $=s=>document.querySelector(s);
+const COL=['--t1','--t2','--t3','--t4'], NAMES=['Команда 1','Команда 2','Команда 3','Команда 4'];
+function xy(i){ if(i<=10)return[11,11-i]; if(i<=19)return[11-(i-10),1]; if(i<=30)return[1,1+(i-20)]; return[1+(i-30),11]; }
+function side(i){ if(i<10&&i>0)return'b'; if(i>10&&i<20)return'l'; if(i>20&&i<30)return't'; if(i>30)return'r'; return'k'; }
+const cls={c:'corner',p:'prop',r:'rail',u:'util',ch:'ch',cc:'cc',tx:'tx'};
+const buyable=i=>['p','r','u'].includes(C[i][0]);
+const price=i=>buyable(i)?PR[C[i][1]]:0;
+const rent=i=>Math.ceil(price(i)/2);
+const grp=i=>C.map((c,j)=>j).filter(j=>buyable(j)&&C[j][1]===C[i][1]);
+const full=i=>{const o=S.owner[i];return o>=0&&grp(i).every(j=>S.owner[j]===o)};
+const rentNow=i=>rent(i)*(full(i)?2:1);
+let S, names=[...NAMES], selected=0, busy=false;
+function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function fresh(n){
+  S={teams:Array.from({length:n},()=>({pos:0,score:12})),cur:0,rolled:false,pending:false,owner:Array(40).fill(-1),
+     dch:shuffle(CHANCE.map((_,k)=>k)),dcc:shuffle(CHEST.map((_,k)=>k)),log:[]};
+}
+function build(){
+  const b=$('#board');b.innerHTML='';
+  C.forEach((c,i)=>{
+    const [r,cc]=xy(i), el=document.createElement('button');
+    el.className='cell '+cls[c[0]]+' s-'+side(i);
+    el.style.gridRow=r;el.style.gridColumn=cc;el.id='c'+i;
+    el.setAttribute('aria-label',i+'. '+c[2]);
+    const g=c[1]?`style="--g:var(${G[c[1]][1]})"`:'';
+    const nm=c[0]==='ch'?'ШАНС ?':c[0]==='cc'?'КАЗНА':c[2];
+    const sl=buyable(i)?`цена ${price(i)}`:(c[3]&&c[0]!=='ch'&&c[0]!=='cc'?c[3]:'');
+    el.innerHTML=`<span class="idx">${i}</span><span class="band" ${g}></span><span class="body"><span class="nm">${nm}</span>${sl?`<span class="sl">${sl}</span>`:'<span></span>'}</span><span class="tks"></span>`;
+    el.onclick=()=>{if(S.pending)return;selected=i;card(i);mark()};
+    b.appendChild(el);
+  });
+  const ce=document.createElement('div');ce.className='center';
+  ce.innerHTML=`<div class="banner">ВЫБОРЫ В РОССИИ</div>
+  <p class="lead">Избирательная система РФ. Чтобы занять округ, ответьте на вопрос верно и заплатите мандатами.</p>
+  <div class="dice"><div class="die" id="d1">·</div><div class="die" id="d2">·</div></div>
+  <div class="turn" id="turn"></div>
+  <div class="btns"><button class="btn hot" id="roll">Бросить кубики</button><button class="btn alt" id="end">Передать ход</button></div>`;
+  b.appendChild(ce);
+  $('#roll').onclick=roll;$('#end').onclick=endTurn;
+  $('#legend').innerHTML=Object.entries(G).map(([k,v])=>`<span><i style="background:var(${v[1]})"></i>${v[0]}</span>`).join('');
+}
+function team(k){return `<span class="dot" style="background:var(${COL[k]})"></span>`}
+function mark(){
+  document.querySelectorAll('.cell').forEach((el,i)=>{
+    el.classList.toggle('sel',i===selected);
+    el.querySelector('.tks').innerHTML=S.teams.map((t,k)=>t.pos===i?`<span class="tk" style="background:var(${COL[k]})"></span>`:'').join('');
+    const o=S.owner[i];let ow=el.querySelector('.owner');
+    if(o>=0){if(!ow){ow=document.createElement('span');ow.className='owner';el.appendChild(ow)}ow.style.background=`var(${COL[o]})`}else if(ow)ow.remove();
+    let x=el.querySelector('.x2');if(o>=0&&full(i)){if(!x){x=document.createElement('span');x.className='x2';x.textContent='×2';el.appendChild(x)}}else if(x)x.remove();
+  });
+  $('#score').innerHTML=S.teams.map((t,k)=>{const n=S.owner.filter(o=>o===k).length;
+    return `<li class="${k===S.cur?'on':''}">${team(k)}<input id="nm${k}" value="${names[k]}" aria-label="Название команды ${k+1}"><span class="small">округов: ${n}</span><b>${t.score}</b></li>`}).join('');
+  S.teams.forEach((_,k)=>{$('#nm'+k).oninput=e=>{names[k]=e.target.value;$('#turn').innerHTML=team(S.cur)+' '+names[S.cur]}});
+  $('#turn').innerHTML=team(S.cur)+' '+names[S.cur];
+  $('#sell').disabled=busy||S.pending;$('#trade').disabled=busy||S.pending||S.teams.length<2;$('#roll').disabled=busy||S.rolled;$('#end').disabled=busy||!S.rolled||S.pending;
+  $('#log').innerHTML=S.log.slice(0,30).map(l=>`<li>${l}</li>`).join('');
+}
+function log(t){S.log.unshift(t)}
+function add(k,d){S.teams[k].score=Math.max(0,S.teams[k].score+d)}
+function head(i){const c=C[i];let g='var(--ink)',hc='var(--bg)',lab='';
+  if(c[1]){g=`var(${G[c[1]][1]})`;hc=DARKTXT.includes(c[1])?'#17261d':'#fff';lab=G[c[1]][0]}
+  else if(c[0]==='ch'){lab='Вопрос';g='var(--accent)';hc='var(--accent-ink)'}
+  else if(c[0]==='cc'){lab='Событие';g='var(--accent)';hc='var(--accent-ink)'}
+  else if(c[0]==='tx'){lab='Штраф';g='var(--accent)';hc='var(--accent-ink)'}
+  else lab='Угловая клетка';
+  return `<div class="hd" style="--g:${g};--hc:${hc}"><small>${lab}</small><h2>${c[2]}</h2></div>`}
+function info(i){const c=C[i];if(buyable(i)&&S.owner[i]<0)return `<p class="small" style="margin:0">${c[3]||''}</p><p class="small"><span class="price">цена ${price(i)}</span>свободный округ. Справка откроется после покупки.</p>`;let h=`<p class="small" style="margin:0">${c[3]||''}</p>`+c[4];
+  if(buyable(i)){const o=S.owner[i];
+    h+=`<p class="small"><span class="price">цена ${price(i)}</span>аренда ${rentNow(i)}${full(i)?' (×2: вся группа у владельца)':''}${o>=0?` · владелец: ${names[o]}`:' · свободен'}</p>`}
+  return h}
+function card(i){$('#card').innerHTML=head(i)+info(i)}
+function openQ(h){closeQ();const d=document.createElement('section');d.className='panel card qlay';d.id='qlay';d.innerHTML=h;$('#board').appendChild(d);return d}
+function closeQ(){const d=$('#qlay');if(d)d.remove()}
+function options(list,onPick){
+  const items=shuffle(list.map((t,k)=>({t,ok:k===0})));
+  const box=document.createElement('div');box.className='opts';
+  items.forEach(it=>{const b=document.createElement('button');b.className='opt';b.textContent=it.t;
+    b.onclick=()=>{[...box.children].forEach(x=>{x.disabled=true;if(x===b)x.classList.add(it.ok?'right':'wrong');else x.classList.add('dim')});onPick(it.ok)};
+    box.appendChild(b)});
+  return box;
+}
+function roll(){
+  if(busy||S.rolled)return;busy=true;S.rolled=true;mark();
+  const d1=$('#d1'),d2=$('#d2');d1.classList.add('roll');d2.classList.add('roll');
+  const t=setInterval(()=>{d1.textContent=1+Math.floor(Math.random()*6);d2.textContent=1+Math.floor(Math.random()*6)},80);
+  setTimeout(()=>{clearInterval(t);d1.classList.remove('roll');d2.classList.remove('roll');
+    const a=1+Math.floor(Math.random()*6),b=1+Math.floor(Math.random()*6);d1.textContent=a;d2.textContent=b;
+    log(`${names[S.cur]} бросает ${a}+${b}`);step(a+b)},650);
+}
+function step(n){
+  const T=S.teams[S.cur];
+  if(n===0){busy=false;land(T.pos);return}
+  T.pos=(T.pos+1)%40;
+  if(T.pos===0){add(S.cur,2);log(`${names[S.cur]} проходит старт: выборы назначены (+2)`)}
+  selected=T.pos;mark();setTimeout(()=>step(n-1),230);
+}
+function land(i){
+  const c=C[i],k=S.cur;selected=i;
+  if(c[0]==='tx'){add(k,-2);log(`${names[k]}: «${c[2]}» (−2)`);card(i)}
+  else if(i===20){add(k,1);log(`${names[k]}: явка (+1)`);card(i)}
+  else if(i===30){log(`${names[k]} нарушает правила и отправляется в зону риска`);card(i);S.teams[k].pos=10;selected=10}
+  else if(buyable(i)){
+    const o=S.owner[i];
+    if(o>=0&&o!==k){const r=Math.min(rentNow(i),S.teams[k].score);add(k,-r);add(o,r);log(`${names[k]} платит ${names[o]} аренду за «${c[2]}» (−${r}${full(i)?', ×2: вся группа у владельца':''})`);card(i)}
+    else if(o===k){card(i)}
+    else{quiz(i);return}
+  }
+  else if(c[0]==='ch'){draw('ch');return}
+  else if(c[0]==='cc'){draw('cc');return}
+  else card(i);
+  mark();
+}
+function quiz(i){
+  const c=C[i],k=S.cur,p=price(i);
+  if(S.teams[k].score<p){log(`${names[k]}: не хватает мандатов на «${c[2]}»`);
+    $('#card').innerHTML=head(i)+`<p>Не хватает мандатов на покупку (нужно ${p}, у вас ${S.teams[k].score}).</p>`;mark();return}
+  S.pending=true;
+  openQ(head(i)+`<p><span class="price">цена ${p}</span>${names[k]}: ответьте верно, чтобы занять округ. У вас ${S.teams[k].score} мандатов.</p><p><b>${c[6]}</b></p><div id="qbox"></div><div class="act" id="qact"><button class="btn alt" id="nobuy">Не покупать</button></div>`);
+  $('#card').innerHTML=head(i)+'<p class="small">Вопрос открыт в центре поля.</p>';
+  $('#qbox').appendChild(options(c[7],ok=>{
+    $('#qact').remove();
+    if(ok){add(k,-p);S.owner[i]=k;log(`${names[k]} отвечает верно и занимает «${c[2]}» (−${p})`)}
+    else log(`${names[k]} отвечает неверно: «${c[2]}» остаётся свободным`);
+    S.pending=false;
+    $('#qbox').insertAdjacentHTML('afterend',`<div class="verdict ${ok?'':'bad'}">${ok?`Верно! Округ ваш, списано мандатов: ${p}.`:'Неверно. Округ остаётся свободным.'}</div><div class="act"><button class="btn hot" id="qclose">Продолжить</button></div>`);
+    $('#qclose').onclick=closeQ;
+    $('#card').innerHTML=head(i)+(ok?info(i):'<p>Ответ неверный: округ остаётся свободным.</p>');
+    mark();}));
+  $('#nobuy').onclick=()=>{S.pending=false;log(`${names[k]} отказывается от «${c[2]}»`);closeQ();$('#card').innerHTML=head(i)+info(i);mark()};
+  mark();
+}
+function draw(t){
+  const deck=t==='ch'?'dch':'dcc',src=t==='ch'?CHANCE:CHEST,k=S.cur,i=S.teams[k].pos;
+  if(!S[deck].length)S[deck]=shuffle(src.map((_,j)=>j));
+  const q=src[S[deck].shift()];
+  if(t==='cc'){
+    add(k,q[1]);log(`${names[k]}: «Казна» (${q[1]>0?'+':''}${q[1]})`);
+    $('#card').innerHTML=head(i)+`<p>${q[0]}</p><div class="verdict ${q[1]<0?'bad':''}">${q[1]>0?'+'+q[1]+' мандата':q[1]<0?'−'+(-q[1])+' мандата':'Без изменений'}</div>`;mark();return}
+  S.pending=true;
+  openQ(head(i)+`<p><b>${q[0]}</b></p><p class="small">${names[k]}: верный ответ даёт +2 мандата.</p><div id="qbox"></div>`);
+  $('#card').innerHTML=head(i)+'<p class="small">Вопрос открыт в центре поля.</p>';
+  $('#qbox').appendChild(options(q[1],ok=>{
+    if(ok)add(k,2);log(`${names[k]}: «Шанс» ${ok?'верно (+2)':'неверно (0)'}`);S.pending=false;
+    $('#qbox').insertAdjacentHTML('afterend',`<div class="verdict ${ok?'':'bad'}">${ok?'Верно: +2 мандата.':'Неверно.'}</div>${ok?`<p>${q[2]}</p>`:''}<div class="act"><button class="btn hot" id="qclose">Продолжить</button></div>`);
+    $('#qclose').onclick=closeQ;
+    $('#card').innerHTML=head(i)+(ok?`<p>${q[2]}</p>`:'<p>Ответ неверный.</p>');
+    mark()}));
+  mark();
+}
+function endTurn(){if(!S.rolled||S.pending||busy)return;closeQ();S.cur=(S.cur+1)%S.teams.length;S.rolled=false;$('#d1').textContent='·';$('#d2').textContent='·';selected=S.teams[S.cur].pos;card(selected);mark()}
+function finish(){closeQ();
+  const rows=S.teams.map((t,k)=>{const v=S.owner.reduce((a,o,i)=>a+(o===k?price(i):0),0);return{k,s:t.score,v,n:S.owner.filter(o=>o===k).length,tot:t.score+v}}).sort((a,b)=>b.tot-a.tot);
+  $('#card').innerHTML=`<div class="hd" style="--g:var(--ink);--hc:var(--bg)"><small>Итоги</small><h2>Подведение итогов</h2></div>
+  <p class="small">Итог = мандаты + стоимость занятых округов.</p>
+  <table class="rank"><tr><th>Команда</th><th>Мандаты</th><th>Округа</th><th>Итог</th></tr>${rows.map(r=>`<tr><td>${team(r.k)} ${names[r.k]}</td><td>${r.s}</td><td>${r.n} (${r.v})</td><td><b>${r.tot}</b></td></tr>`).join('')}</table>
+  <p><b>Победитель: ${names[rows[0].k]}</b></p>`;
+}
+function start(){const n=+$('#nteams').value;fresh(n);busy=false;build();selected=0;card(0);mark()}
+$('#nteams').onchange=start;$('#reset').onclick=start;$('#finish').onclick=finish;
+
+const sellPrice=i=>Math.max(1,Math.floor(price(i)/2));
+const mine=k=>S.owner.map((o,i)=>o===k?i:-1).filter(i=>i>=0);
+const bank=(t,h)=>`<div class="hd" style="--g:var(--ink);--hc:var(--bg)"><small>${t}</small><h2>${h}</h2></div>`;
+function sellUI(){
+  if(busy||S.pending)return;closeQ();const k=S.cur,list=mine(k);
+  $('#card').innerHTML=bank('Банк','Продажа округа')+`<p class="small">${names[k]}: продажа банку по половине цены (с округлением вниз). Округ снова становится свободным.</p>`+
+    (list.length?list.map(i=>`<div class="trow"><span>${C[i][2]} <span class="small">(цена ${price(i)})</span></span><button class="btn alt" data-i="${i}">Продать за ${sellPrice(i)}</button></div>`).join(''):'<p>У вашей команды нет округов.</p>');
+  $('#card').querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.i;if(S.owner[i]!==k)return;S.owner[i]=-1;add(k,sellPrice(i));
+    log(`${names[k]} продаёт «${C[i][2]}» банку (+${sellPrice(i)})`);mark();sellUI();});
+}
+function tradeUI(){
+  if(busy||S.pending||S.teams.length<2)return;closeQ();const k=S.cur;
+  const others=S.teams.map((_,j)=>j).filter(j=>j!==k);
+  $('#card').innerHTML=bank('Обмен','Обмен между командами')+
+   `<p><label>Партнёр: <select class="sel2" id="tp">${others.map(j=>`<option value="${j}">${names[j]}</option>`).join('')}</select></label></p><div id="tbox"></div>`;
+  const draw=()=>{
+    const t=+$('#tp').value,my=mine(k),th=mine(t);
+    $('#tbox').innerHTML=`<fieldset class="tfs"><legend>Вы отдаёте</legend>${my.length?my.map(i=>`<label class="chk"><input type="checkbox" class="gi" value="${i}">${C[i][2]}</label>`).join(''):'<span class="small">округов нет</span>'}
+      <p><label>Мандаты (у вас ${S.teams[k].score}): <input class="num" type="number" min="0" max="${S.teams[k].score}" value="0" id="gm"></label></p></fieldset>
+      <fieldset class="tfs"><legend>Вы получаете</legend>${th.length?th.map(i=>`<label class="chk"><input type="checkbox" class="ri" value="${i}">${C[i][2]}</label>`).join(''):'<span class="small">округов нет</span>'}
+      <p><label>Мандаты (у них ${S.teams[t].score}): <input class="num" type="number" min="0" max="${S.teams[t].score}" value="0" id="rm"></label></p></fieldset>
+      <div class="act"><button class="btn hot" id="offer">Предложить обмен</button><button class="btn alt" id="cancel">Отмена</button></div><div id="terr" class="small" style="color:var(--bad)"></div>`;
+    $('#cancel').onclick=()=>card(selected);
+    $('#offer').onclick=()=>{
+      const gi=[...document.querySelectorAll('.gi:checked')].map(x=>+x.value),ri=[...document.querySelectorAll('.ri:checked')].map(x=>+x.value);
+      const gm=Math.max(0,Math.floor(+$('#gm').value||0)),rm=Math.max(0,Math.floor(+$('#rm').value||0));
+      if(!gi.length&&!ri.length&&!gm&&!rm){$('#terr').textContent='Выберите, что обменивать.';return}
+      if(gm>S.teams[k].score){$('#terr').textContent='У вас не хватает мандатов.';return}
+      if(rm>S.teams[t].score){$('#terr').textContent='У партнёра не хватает мандатов.';return}
+      confirmTrade(k,t,gi,ri,gm,rm);};
+  };
+  $('#tp').onchange=draw;draw();
+}
+function confirmTrade(k,t,gi,ri,gm,rm){
+  const lst=(a,m)=>[...a.map(i=>`«${C[i][2]}»`),...(m?[`${m} мандатов`]:[])].join(', ')||'ничего';
+  $('#card').innerHTML=bank('Обмен','Предложение обмена')+`<p>${team(k)} <b>${names[k]}</b> отдаёт: ${lst(gi,gm)}.</p><p>${team(t)} <b>${names[t]}</b> отдаёт: ${lst(ri,rm)}.</p><p><b>${names[t]}, вы согласны?</b></p>
+   <div class="act"><button class="btn hot" id="yes">Принять</button><button class="btn alt" id="no">Отклонить</button></div>`;
+  $('#no').onclick=()=>{log(`${names[t]} отклоняет обмен с ${names[k]}`);card(selected);mark()};
+  $('#yes').onclick=()=>{
+    if(gi.some(i=>S.owner[i]!==k)||ri.some(i=>S.owner[i]!==t)||gm>S.teams[k].score||rm>S.teams[t].score){card(selected);return}
+    gi.forEach(i=>S.owner[i]=t);ri.forEach(i=>S.owner[i]=k);
+    S.teams[k].score+=rm-gm;S.teams[t].score+=gm-rm;
+    log(`Обмен: ${names[k]} (${lst(gi,gm)}) ⇄ ${names[t]} (${lst(ri,rm)})`);
+    $('#card').innerHTML=bank('Обмен','Обмен состоялся')+`<div class="verdict">Договор исполнен: округа и мандаты перешли к новым владельцам.</div>`;mark()};
+}
+$('#sell').onclick=sellUI;$('#trade').onclick=tradeUI;
+start();
+</script>
+
+</body>
+</html>
