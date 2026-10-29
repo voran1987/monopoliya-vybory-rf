@@ -1,10 +1,10 @@
 // Конфигурация проекта Firebase (не секретная, доступ ограничен правилами базы).
 window.FIREBASE_CONFIG = {
-  apiKey: "AIzaSyCRpPj3_Q_tl6U0wuC4yQKvxLEcUZCmXQI",
-  authDomain: "parlamet-536a2.firebaseapp.com",
-  databaseURL: "https://parlamet-536a2-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "parlamet-536a2",
-  storageBucket: "parlamet-536a2.firebasestorage.app",
-  messagingSenderId: "831565871756",
-  appId: "1:831565871756:web:93fbd758bb2b9b1e3ad9a9"
+  apiKey: "AIzaSyCbpEs6GQudA0YuAfKZz4sxwF5gPPtrGQs",
+  authDomain: "election-c0553.firebaseapp.com",
+  databaseURL: "https://election-c0553-default-rtdb.firebaseio.com",
+  projectId: "election-c0553",
+  storageBucket: "election-c0553.firebasestorage.app",
+  messagingSenderId: "322901614236",
+  appId: "1:322901614236:web:e54b754b377900d7f0d759"
 };
