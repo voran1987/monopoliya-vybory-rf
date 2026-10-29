@@ -122,6 +122,10 @@ button{font:inherit;cursor:pointer}
 .qlay .btn{padding:7px 14px;font-size:.95rem}
 @container (max-width:600px){.qlay{grid-column:1/-1;grid-row:1/-1}}
 .x2{position:absolute;right:calc(1.9cqw + 8px);bottom:2px;font-family:var(--f-disp);font-size:max(9px,1.3cqw);color:var(--accent);line-height:1}
+body.viewer .cell,body.viewer .card button,body.viewer .card input,body.viewer .card select,body.viewer .qlay button,body.viewer .score input{pointer-events:none}
+body.viewer .btns,body.viewer .cfg{display:none}
+#mode{font-weight:700}
+@media(max-width:700px){.qlay{position:fixed;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));top:max(12px,env(safe-area-inset-top,0px));max-height:calc(100% - 24px);z-index:50;box-shadow:0 0 0 100vmax rgba(0,0,0,.5)}}
 .trow{display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap;padding:6px 0;border-bottom:1px dotted var(--muted)}
 .tfs{border:2px solid var(--line);padding:8px 10px;margin:10px 0;min-width:0}
 .tfs legend{font-family:var(--f-disp);font-size:.9rem;padding:0 6px}
@@ -135,6 +139,7 @@ button{font:inherit;cursor:pointer}
 <main class="wrap">
   <div id="board" class="board" aria-label="Игровое поле"></div>
   <aside class="side">
+    <div class="small" id="mode" role="status"></div>
     <section class="panel card" id="card" aria-live="polite"></section>
     <section class="panel"><h3>МАНДАТЫ</h3><ul class="score" id="score"></ul>
       <div class="cfg" style="margin-top:10px"><label for="nteams">Команд:</label>
@@ -147,6 +152,9 @@ button{font:inherit;cursor:pointer}
     <section class="panel"><h3>ГРУППЫ ОКРУГОВ</h3><div class="legend" id="legend"></div></section>
   </aside>
 </main>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
 <script>
 const G={brown:['Правовая основа','--g-brown'],lblue:['Избирательные права','--g-lblue'],pink:['Выборы Президента','--g-pink'],
 orange:['Выборы в Госдуму','--g-orange'],red:['Эволюция системы','--g-red'],yellow:['Реформы 2006–2020','--g-yellow'],
@@ -255,6 +263,7 @@ const grp=i=>C.map((c,j)=>j).filter(j=>buyable(j)&&C[j][1]===C[i][1]);
 const full=i=>{const o=S.owner[i];return o>=0&&grp(i).every(j=>S.owner[j]===o)};
 const rentNow=i=>rent(i)*(full(i)?2:1);
 let S, names=[...NAMES], selected=0, busy=false;
+let viewer=false, db=null, fbKey=null, pushT=null, errShown=false;
 function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function fresh(n){
   S={teams:Array.from({length:n},()=>({pos:0,score:12})),cur:0,rolled:false,pending:false,owner:Array(40).fill(-1),
@@ -294,11 +303,12 @@ function mark(){
     let x=el.querySelector('.x2');if(o>=0&&full(i)){if(!x){x=document.createElement('span');x.className='x2';x.textContent='×2';el.appendChild(x)}}else if(x)x.remove();
   });
   $('#score').innerHTML=S.teams.map((t,k)=>{const n=S.owner.filter(o=>o===k).length;
-    return `<li class="${k===S.cur?'on':''}">${team(k)}<input id="nm${k}" value="${names[k]}" aria-label="Название команды ${k+1}"><span class="small">округов: ${n}</span><b>${t.score}</b></li>`}).join('');
-  S.teams.forEach((_,k)=>{$('#nm'+k).oninput=e=>{names[k]=e.target.value;$('#turn').innerHTML=team(S.cur)+' '+names[S.cur]}});
+    return `<li class="${k===S.cur?'on':''}">${team(k)}<input id="nm${k}" ${viewer?'readonly':''} value="${names[k]}" aria-label="Название команды ${k+1}"><span class="small">округов: ${n}</span><b>${t.score}</b></li>`}).join('');
+  S.teams.forEach((_,k)=>{$('#nm'+k).oninput=e=>{if(viewer)return;names[k]=e.target.value;push();$('#turn').innerHTML=team(S.cur)+' '+names[S.cur]}});
   $('#turn').innerHTML=team(S.cur)+' '+names[S.cur];
   $('#sell').disabled=busy||S.pending;$('#trade').disabled=busy||S.pending||S.teams.length<2;$('#roll').disabled=busy||S.rolled;$('#end').disabled=busy||!S.rolled||S.pending;
   $('#log').innerHTML=S.log.slice(0,30).map(l=>`<li>${l}</li>`).join('');
+  push();
 }
 function log(t){S.log.unshift(t)}
 function add(k,d){S.teams[k].score=Math.max(0,S.teams[k].score+d)}
@@ -315,7 +325,7 @@ function info(i){const c=C[i];if(buyable(i)&&S.owner[i]<0)return `<p class="smal
   return h}
 function card(i){$('#card').innerHTML=head(i)+info(i)}
 function openQ(h){closeQ();const d=document.createElement('section');d.className='panel card qlay';d.id='qlay';d.innerHTML=h;$('#board').appendChild(d);return d}
-function closeQ(){const d=$('#qlay');if(d)d.remove()}
+function closeQ(){const d=$('#qlay');if(d)d.remove();push()}
 function options(list,onPick){
   const items=shuffle(list.map((t,k)=>({t,ok:k===0})));
   const box=document.createElement('div');box.className='opts';
@@ -450,7 +460,45 @@ function confirmTrade(k,t,gi,ri,gm,rm){
     $('#card').innerHTML=bank('Обмен','Обмен состоялся')+`<div class="verdict">Договор исполнен: округа и мандаты перешли к новым владельцам.</div>`;mark()};
 }
 $('#sell').onclick=sellUI;$('#trade').onclick=tradeUI;
-start();
+
+/* ===== Синхронизация через Firebase (схема «Парламентии»: ведущий пишет, студенты смотрят) ===== */
+function cloneHTML(el){const c=el.cloneNode(true),a=el.querySelectorAll('input,select'),b=c.querySelectorAll('input,select');
+  a.forEach((x,i)=>{const y=b[i];if(x.type==='checkbox'){x.checked?y.setAttribute('checked',''):y.removeAttribute('checked')}
+    else if(x.tagName==='SELECT'){[...y.options].forEach((o,j)=>{if(x.selectedIndex===j)o.setAttribute('selected','');else o.removeAttribute('selected')})}
+    else y.setAttribute('value',x.value)});return c.innerHTML}
+function snap(){const {dch,dcc,...rest}=S,q=$('#qlay');
+  return{S:{...rest,log:S.log.slice(0,40)},names,selected,d1:$('#d1').textContent,d2:$('#d2').textContent,card:cloneHTML($('#card')),q:q?cloneHTML(q):null,t:Date.now()}}
+function setMode(t){const m=$('#mode');if(m)m.textContent=t}
+function push(){if(viewer||!db||!fbKey)return;clearTimeout(pushT);pushT=setTimeout(()=>{
+  db.ref('monopoly').update({json:JSON.stringify(snap()),key:fbKey}).then(()=>{if(errShown){errShown=false;setMode('Ведущий: синхронизация включена')}}).catch(()=>{errShown=true;setMode('Не сохранено: проверьте ключ ведущего')})},120)}
+function applySnap(o){
+  S={dch:[],dcc:[],...o.S};names=o.names;selected=o.selected;
+  $('#d1').textContent=o.d1;$('#d2').textContent=o.d2;mark();
+  $('#card').innerHTML=o.card;
+  if(o.q){let d=$('#qlay');if(!d){d=document.createElement('section');d.className='panel card qlay';d.id='qlay';$('#board').appendChild(d)}d.innerHTML=o.q}
+  else{const d=$('#qlay');if(d)d.remove()}
+  setMode('Просмотр. Обновлено '+new Date().toLocaleTimeString('ru-RU'));
+}
+function restore(o){
+  S={...o.S,pending:false,dch:shuffle(CHANCE.map((_,k)=>k)),dcc:shuffle(CHEST.map((_,k)=>k))};names=o.names;selected=o.selected;
+  $('#nteams').value=S.teams.length;build();$('#d1').textContent=o.d1;$('#d2').textContent=o.d2;mark();$('#card').innerHTML=o.card;
+}
+function connect(){
+  const cfg=window.FIREBASE_CONFIG;
+  try{const k=new URL(location.href).searchParams.get('key');if(k){localStorage.setItem('monopoly_key',k);history.replaceState(null,'',location.pathname)}
+      fbKey=localStorage.getItem('monopoly_key');if(/[?&]view=1/.test(location.search))fbKey=null}catch(e){}
+  if(!cfg||typeof firebase==='undefined'){setMode('Локальный режим: игра только на этом устройстве');return}
+  try{firebase.initializeApp(cfg);db=firebase.database()}catch(e){setMode('Нет связи с базой');return}
+  viewer=!fbKey;
+  if(viewer){document.body.classList.add('viewer');setMode('Просмотр. Ждём ведущего…');mark()}
+  else setMode('Ведущий: синхронизация включена');
+  let first=true;
+  db.ref('monopoly/json').on('value',s=>{let o=null;try{o=s.val()?JSON.parse(s.val()):null}catch(e){}
+    if(viewer){if(o&&o.S)applySnap(o);else setMode('Просмотр. Ведущий ещё не начал игру');return}
+    if(!first)return;first=false;if(o&&o.S)restore(o);else push()},()=>setMode('Нет доступа к игре'));
+}
+document.addEventListener('change',()=>push());document.addEventListener('input',()=>push());
+start();connect();
 </script>
 
 </body>
