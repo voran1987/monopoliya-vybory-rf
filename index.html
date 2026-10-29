@@ -124,6 +124,12 @@ button{font:inherit;cursor:pointer}
 .x2{position:absolute;right:calc(1.9cqw + 8px);bottom:2px;font-family:var(--f-disp);font-size:max(9px,1.3cqw);color:var(--accent);line-height:1}
 body.viewer .cell,body.viewer .card button,body.viewer .card input,body.viewer .card select,body.viewer .qlay button,body.viewer .score input{pointer-events:none}
 body.viewer .btns,body.viewer .cfg{display:none}
+body.team .btns{display:flex}
+body.team .cfg{display:flex}
+body.team .cfg label[for="nteams"],body.team #nteams,body.team #finish,body.team #reset{display:none}
+body.team .card button,body.team .card input,body.team .card select,body.team .qlay button{pointer-events:auto}
+body.team .qlay.ro button{pointer-events:none;opacity:.6}
+body.team .btn:disabled{opacity:.35}
 #mode{font-weight:700}
 @media(max-width:700px){.qlay{position:fixed;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));top:max(12px,env(safe-area-inset-top,0px));max-height:calc(100% - 24px);z-index:50;box-shadow:0 0 0 100vmax rgba(0,0,0,.5)}}
 .trow{display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap;padding:6px 0;border-bottom:1px dotted var(--muted)}
@@ -263,10 +269,10 @@ const grp=i=>C.map((c,j)=>j).filter(j=>buyable(j)&&C[j][1]===C[i][1]);
 const full=i=>{const o=S.owner[i];return o>=0&&grp(i).every(j=>S.owner[j]===o)};
 const rentNow=i=>rent(i)*(full(i)?2:1);
 let S, names=[...NAMES], selected=0, busy=false;
-let viewer=false, db=null, fbKey=null, pushT=null, errShown=false;
+let viewer=false, db=null, fbKey=null, pushT=null, errShown=false, myTeam=-1, teamKey=null, uiMode=null, lastSnap=null;
 function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function fresh(n){
-  S={teams:Array.from({length:n},()=>({pos:0,score:12})),cur:0,rolled:false,pending:false,owner:Array(40).fill(-1),
+  S={teams:Array.from({length:n},()=>({pos:0,score:12})),cur:0,rolled:false,pending:false,owner:Array(40).fill(-1),offer:null,
      dch:shuffle(CHANCE.map((_,k)=>k)),dcc:shuffle(CHEST.map((_,k)=>k)),log:[]};
 }
 function build(){
@@ -306,7 +312,7 @@ function mark(){
     return `<li class="${k===S.cur?'on':''}">${team(k)}<input id="nm${k}" ${viewer?'readonly':''} value="${names[k]}" aria-label="Название команды ${k+1}"><span class="small">округов: ${n}</span><b>${t.score}</b></li>`}).join('');
   S.teams.forEach((_,k)=>{$('#nm'+k).oninput=e=>{if(viewer)return;names[k]=e.target.value;push();$('#turn').innerHTML=team(S.cur)+' '+names[S.cur]}});
   $('#turn').innerHTML=team(S.cur)+' '+names[S.cur];
-  $('#sell').disabled=busy||S.pending;$('#trade').disabled=busy||S.pending||S.teams.length<2;$('#roll').disabled=busy||S.rolled;$('#end').disabled=busy||!S.rolled||S.pending;
+  const off=!!S.offer;$('#sell').disabled=busy||S.pending||off;$('#trade').disabled=busy||S.pending||off||S.teams.length<2;$('#roll').disabled=busy||S.rolled||off;$('#end').disabled=busy||!S.rolled||S.pending||off;
   $('#log').innerHTML=S.log.slice(0,30).map(l=>`<li>${l}</li>`).join('');
   push();
 }
@@ -329,7 +335,7 @@ function closeQ(){const d=$('#qlay');if(d)d.remove();push()}
 function options(list,onPick){
   const items=shuffle(list.map((t,k)=>({t,ok:k===0})));
   const box=document.createElement('div');box.className='opts';
-  items.forEach(it=>{const b=document.createElement('button');b.className='opt';b.textContent=it.t;
+  items.forEach((it,idx)=>{const b=document.createElement('button');b.className='opt';b.dataset.cmd='ans';b.dataset.i=idx;b.textContent=it.t;
     b.onclick=()=>{[...box.children].forEach(x=>{x.disabled=true;if(x===b)x.classList.add(it.ok?'right':'wrong');else x.classList.add('dim')});onPick(it.ok)};
     box.appendChild(b)});
   return box;
@@ -370,14 +376,14 @@ function quiz(i){
   if(S.teams[k].score<p){log(`${names[k]}: не хватает мандатов на «${c[2]}»`);
     $('#card').innerHTML=head(i)+`<p>Не хватает мандатов на покупку (нужно ${p}, у вас ${S.teams[k].score}).</p>`;mark();return}
   S.pending=true;
-  openQ(head(i)+`<p><span class="price">цена ${p}</span>${names[k]}: ответьте верно, чтобы занять округ. У вас ${S.teams[k].score} мандатов.</p><p><b>${c[6]}</b></p><div id="qbox"></div><div class="act" id="qact"><button class="btn alt" id="nobuy">Не покупать</button></div>`);
+  openQ(head(i)+`<p><span class="price">цена ${p}</span>${names[k]}: ответьте верно, чтобы занять округ. У вас ${S.teams[k].score} мандатов.</p><p><b>${c[6]}</b></p><div id="qbox"></div><div class="act" id="qact"><button class="btn alt" id="nobuy" data-cmd="nobuy">Не покупать</button></div>`);
   $('#card').innerHTML=head(i)+'<p class="small">Вопрос открыт в центре поля.</p>';
   $('#qbox').appendChild(options(c[7],ok=>{
     $('#qact').remove();
     if(ok){add(k,-p);S.owner[i]=k;log(`${names[k]} отвечает верно и занимает «${c[2]}» (−${p})`)}
     else log(`${names[k]} отвечает неверно: «${c[2]}» остаётся свободным`);
     S.pending=false;
-    $('#qbox').insertAdjacentHTML('afterend',`<div class="verdict ${ok?'':'bad'}">${ok?`Верно! Округ ваш, списано мандатов: ${p}.`:'Неверно. Округ остаётся свободным.'}</div><div class="act"><button class="btn hot" id="qclose">Продолжить</button></div>`);
+    $('#qbox').insertAdjacentHTML('afterend',`<div class="verdict ${ok?'':'bad'}">${ok?`Верно! Округ ваш, списано мандатов: ${p}.`:'Неверно. Округ остаётся свободным.'}</div><div class="act"><button class="btn hot" id="qclose" data-cmd="close">Продолжить</button></div>`);
     $('#qclose').onclick=closeQ;
     $('#card').innerHTML=head(i)+(ok?info(i):'<p>Ответ неверный: округ остаётся свободным.</p>');
     mark();}));
@@ -396,7 +402,7 @@ function draw(t){
   $('#card').innerHTML=head(i)+'<p class="small">Вопрос открыт в центре поля.</p>';
   $('#qbox').appendChild(options(q[1],ok=>{
     if(ok)add(k,2);log(`${names[k]}: «Шанс» ${ok?'верно (+2)':'неверно (0)'}`);S.pending=false;
-    $('#qbox').insertAdjacentHTML('afterend',`<div class="verdict ${ok?'':'bad'}">${ok?'Верно: +2 мандата.':'Неверно.'}</div>${ok?`<p>${q[2]}</p>`:''}<div class="act"><button class="btn hot" id="qclose">Продолжить</button></div>`);
+    $('#qbox').insertAdjacentHTML('afterend',`<div class="verdict ${ok?'':'bad'}">${ok?'Верно: +2 мандата.':'Неверно.'}</div>${ok?`<p>${q[2]}</p>`:''}<div class="act"><button class="btn hot" id="qclose" data-cmd="close">Продолжить</button></div>`);
     $('#qclose').onclick=closeQ;
     $('#card').innerHTML=head(i)+(ok?`<p>${q[2]}</p>`:'<p>Ответ неверный.</p>');
     mark()}));
@@ -416,16 +422,53 @@ $('#nteams').onchange=start;$('#reset').onclick=start;$('#finish').onclick=finis
 const sellPrice=i=>Math.max(1,Math.floor(price(i)/2));
 const mine=k=>S.owner.map((o,i)=>o===k?i:-1).filter(i=>i>=0);
 const bank=(t,h)=>`<div class="hd" style="--g:var(--ink);--hc:var(--bg)"><small>${t}</small><h2>${h}</h2></div>`;
+const isTeam=()=>myTeam>=0;
+const actor=()=>isTeam()?myTeam:S.cur;
+const lstOf=(a,m)=>[...a.map(i=>`«${C[i][2]}»`),...(m?[`${m} мандатов`]:[])].join(', ')||'ничего';
+const ints=a=>(Array.isArray(a)?a:[]).map(Number).filter(x=>Number.isInteger(x)&&x>=0&&x<40);
+function closeUI(){uiMode=null;if(isTeam()&&lastSnap)applySnap(lastSnap);else card(selected)}
+function sellDo(k,i){
+  if(!Number.isInteger(i)||busy||S.pending||S.offer||S.owner[i]!==k)return false;
+  S.owner[i]=-1;add(k,sellPrice(i));log(`${names[k]} продаёт «${C[i][2]}» банку (+${sellPrice(i)})`);mark();return true}
 function sellUI(){
-  if(busy||S.pending)return;closeQ();const k=S.cur,list=mine(k);
+  if(!isTeam()){if(busy||S.pending||S.offer)return;closeQ()}
+  uiMode='sell';const k=actor(),list=mine(k);
   $('#card').innerHTML=bank('Банк','Продажа округа')+`<p class="small">${names[k]}: продажа банку по половине цены (с округлением вниз). Округ снова становится свободным.</p>`+
-    (list.length?list.map(i=>`<div class="trow"><span>${C[i][2]} <span class="small">(цена ${price(i)})</span></span><button class="btn alt" data-i="${i}">Продать за ${sellPrice(i)}</button></div>`).join(''):'<p>У вашей команды нет округов.</p>');
-  $('#card').querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{
-    const i=+b.dataset.i;if(S.owner[i]!==k)return;S.owner[i]=-1;add(k,sellPrice(i));
-    log(`${names[k]} продаёт «${C[i][2]}» банку (+${sellPrice(i)})`);mark();sellUI();});
+    (list.length?list.map(i=>`<div class="trow"><span>${C[i][2]} <span class="small">(цена ${price(i)})</span></span><button class="btn alt" data-i="${i}">Продать за ${sellPrice(i)}</button></div>`).join(''):'<p>У вашей команды нет округов.</p>')+
+    `<div class="act"><button class="btn alt" id="uiclose">Закрыть</button></div>`;
+  $('#card').querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;
+    if(isTeam())send({act:'sell',i});else{sellDo(k,i);sellUI()}});
+  $('#uiclose').onclick=closeUI;
+}
+function makeOffer(k,t,gi,ri,gm,rm){
+  if(busy||S.pending||S.offer)return 'Сейчас нельзя: дождитесь окончания вопроса или ответа на предложение.';
+  if(t===k||!S.teams[t])return 'Выберите партнёра.';
+  gi=ints(gi);ri=ints(ri);gm=Math.max(0,Math.floor(+gm||0));rm=Math.max(0,Math.floor(+rm||0));
+  if(!gi.length&&!ri.length&&!gm&&!rm)return 'Выберите, что обменивать.';
+  if(gi.some(i=>S.owner[i]!==k)||ri.some(i=>S.owner[i]!==t))return 'Округа изменили владельца.';
+  if(gm>S.teams[k].score)return 'У вас не хватает мандатов.';
+  if(rm>S.teams[t].score)return 'У партнёра не хватает мандатов.';
+  S.offer={from:k,to:t,gi,ri,gm,rm};log(`${names[k]} предлагает обмен команде ${names[t]}`);showOffer();mark();return ''}
+function showOffer(){
+  const o=S.offer;if(!o)return;
+  $('#card').innerHTML=bank('Обмен','Предложение обмена')+`<p>${team(o.from)} <b>${names[o.from]}</b> отдаёт: ${lstOf(o.gi,o.gm)}.</p><p>${team(o.to)} <b>${names[o.to]}</b> отдаёт: ${lstOf(o.ri,o.rm)}.</p><p><b>${names[o.to]}, вы согласны?</b></p>
+   <div class="act"><button class="btn hot" id="yes" data-cmd="accept">Принять</button><button class="btn alt" id="no" data-cmd="decline">Отклонить</button><button class="btn alt" id="wd" data-cmd="cancel">Отозвать</button></div>`;
+  $('#yes').onclick=()=>resolveOffer(true);$('#no').onclick=()=>resolveOffer(false);$('#wd').onclick=()=>resolveOffer(false,true);
+}
+function resolveOffer(ok,wd){
+  const o=S.offer;if(!o)return;S.offer=null;const k=o.from,t=o.to;
+  if(ok){
+    if(o.gi.some(i=>S.owner[i]!==k)||o.ri.some(i=>S.owner[i]!==t)||o.gm>S.teams[k].score||o.rm>S.teams[t].score){log('Обмен не состоялся: условия изменились');card(selected)}
+    else{o.gi.forEach(i=>S.owner[i]=t);o.ri.forEach(i=>S.owner[i]=k);S.teams[k].score+=o.rm-o.gm;S.teams[t].score+=o.gm-o.rm;
+      log(`Обмен: ${names[k]} (${lstOf(o.gi,o.gm)}) ⇄ ${names[t]} (${lstOf(o.ri,o.rm)})`);
+      $('#card').innerHTML=bank('Обмен','Обмен состоялся')+`<div class="verdict">Договор исполнен: округа и мандаты перешли к новым владельцам.</div>`}
+  }else{log(wd?`${names[k]} отзывает предложение обмена`:`${names[t]} отклоняет обмен с ${names[k]}`);card(selected)}
+  mark();
 }
 function tradeUI(){
-  if(busy||S.pending||S.teams.length<2)return;closeQ();const k=S.cur;
+  if(S.teams.length<2)return;
+  if(!isTeam()){if(busy||S.pending||S.offer)return;closeQ()}
+  uiMode='trade';const k=actor();
   const others=S.teams.map((_,j)=>j).filter(j=>j!==k);
   $('#card').innerHTML=bank('Обмен','Обмен между командами')+
    `<p><label>Партнёр: <select class="sel2" id="tp">${others.map(j=>`<option value="${j}">${names[j]}</option>`).join('')}</select></label></p><div id="tbox"></div>`;
@@ -436,67 +479,105 @@ function tradeUI(){
       <fieldset class="tfs"><legend>Вы получаете</legend>${th.length?th.map(i=>`<label class="chk"><input type="checkbox" class="ri" value="${i}">${C[i][2]}</label>`).join(''):'<span class="small">округов нет</span>'}
       <p><label>Мандаты (у них ${S.teams[t].score}): <input class="num" type="number" min="0" max="${S.teams[t].score}" value="0" id="rm"></label></p></fieldset>
       <div class="act"><button class="btn hot" id="offer">Предложить обмен</button><button class="btn alt" id="cancel">Отмена</button></div><div id="terr" class="small" style="color:var(--bad)"></div>`;
-    $('#cancel').onclick=()=>card(selected);
+    $('#cancel').onclick=closeUI;
     $('#offer').onclick=()=>{
       const gi=[...document.querySelectorAll('.gi:checked')].map(x=>+x.value),ri=[...document.querySelectorAll('.ri:checked')].map(x=>+x.value);
       const gm=Math.max(0,Math.floor(+$('#gm').value||0)),rm=Math.max(0,Math.floor(+$('#rm').value||0));
       if(!gi.length&&!ri.length&&!gm&&!rm){$('#terr').textContent='Выберите, что обменивать.';return}
       if(gm>S.teams[k].score){$('#terr').textContent='У вас не хватает мандатов.';return}
       if(rm>S.teams[t].score){$('#terr').textContent='У партнёра не хватает мандатов.';return}
-      confirmTrade(k,t,gi,ri,gm,rm);};
+      if(isTeam()){send({act:'offer',t,gi,ri,gm,rm});uiMode=null;$('#card').innerHTML=bank('Обмен','Предложение отправлено')+'<p>Ждём ответа команды-партнёра.</p>'}
+      else{const e=makeOffer(k,t,gi,ri,gm,rm);if(e)$('#terr').textContent=e}};
   };
   $('#tp').onchange=draw;draw();
 }
-function confirmTrade(k,t,gi,ri,gm,rm){
-  const lst=(a,m)=>[...a.map(i=>`«${C[i][2]}»`),...(m?[`${m} мандатов`]:[])].join(', ')||'ничего';
-  $('#card').innerHTML=bank('Обмен','Предложение обмена')+`<p>${team(k)} <b>${names[k]}</b> отдаёт: ${lst(gi,gm)}.</p><p>${team(t)} <b>${names[t]}</b> отдаёт: ${lst(ri,rm)}.</p><p><b>${names[t]}, вы согласны?</b></p>
-   <div class="act"><button class="btn hot" id="yes">Принять</button><button class="btn alt" id="no">Отклонить</button></div>`;
-  $('#no').onclick=()=>{log(`${names[t]} отклоняет обмен с ${names[k]}`);card(selected);mark()};
-  $('#yes').onclick=()=>{
-    if(gi.some(i=>S.owner[i]!==k)||ri.some(i=>S.owner[i]!==t)||gm>S.teams[k].score||rm>S.teams[t].score){card(selected);return}
-    gi.forEach(i=>S.owner[i]=t);ri.forEach(i=>S.owner[i]=k);
-    S.teams[k].score+=rm-gm;S.teams[t].score+=gm-rm;
-    log(`Обмен: ${names[k]} (${lst(gi,gm)}) ⇄ ${names[t]} (${lst(ri,rm)})`);
-    $('#card').innerHTML=bank('Обмен','Обмен состоялся')+`<div class="verdict">Договор исполнен: округа и мандаты перешли к новым владельцам.</div>`;mark()};
-}
 $('#sell').onclick=sellUI;$('#trade').onclick=tradeUI;
 
-/* ===== Синхронизация через Firebase (схема «Парламентии»: ведущий пишет, студенты смотрят) ===== */
+/* ===== Синхронизация через Firebase: ведущий пишет состояние, команды шлют команды, остальные смотрят ===== */
 function cloneHTML(el){const c=el.cloneNode(true),a=el.querySelectorAll('input,select'),b=c.querySelectorAll('input,select');
   a.forEach((x,i)=>{const y=b[i];if(x.type==='checkbox'){x.checked?y.setAttribute('checked',''):y.removeAttribute('checked')}
     else if(x.tagName==='SELECT'){[...y.options].forEach((o,j)=>{if(x.selectedIndex===j)o.setAttribute('selected','');else o.removeAttribute('selected')})}
     else y.setAttribute('value',x.value)});return c.innerHTML}
 function snap(){const {dch,dcc,...rest}=S,q=$('#qlay');
-  return{S:{...rest,log:S.log.slice(0,40)},names,selected,d1:$('#d1').textContent,d2:$('#d2').textContent,card:cloneHTML($('#card')),q:q?cloneHTML(q):null,t:Date.now()}}
+  return{S:{...rest,log:S.log.slice(0,40)},names,selected,busy,d1:$('#d1').textContent,d2:$('#d2').textContent,card:cloneHTML($('#card')),q:q?cloneHTML(q):null,t:Date.now()}}
 function setMode(t){const m=$('#mode');if(m)m.textContent=t}
 function push(){if(viewer||!db||!fbKey)return;clearTimeout(pushT);pushT=setTimeout(()=>{
-  db.ref('monopoly').update({json:JSON.stringify(snap()),key:fbKey}).then(()=>{if(errShown){errShown=false;setMode('Ведущий: синхронизация включена')}}).catch(()=>{errShown=true;setMode('Не сохранено: проверьте ключ ведущего')})},120)}
+  const r=db.ref('monopoly');
+  r.update({json:JSON.stringify(snap()),key:fbKey}).then(()=>r.child('key').remove()).then(()=>{if(errShown){errShown=false;setMode('Ведущий: синхронизация включена')}}).catch(()=>{errShown=true;setMode('Не сохранено: проверьте ключ ведущего')})},120)}
+function send(c){
+  if(!db||!teamKey||!isTeam())return;
+  c.n=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  const r=db.ref('monopoly/cmd'+(myTeam+1));
+  r.update({c:JSON.stringify(c),key:teamKey}).then(()=>r.child('key').remove()).catch(()=>setMode('Команда не принята: проверьте ключ команды'))}
+function teamControls(o){
+  const my=myTeam,turn=S.cur===my,off=!!S.offer,bz=!!o.busy;
+  $('#roll').disabled=!(turn&&!S.rolled&&!S.pending&&!off&&!bz);
+  $('#end').disabled=!(turn&&S.rolled&&!S.pending&&!off&&!bz);
+  $('#sell').disabled=!!(bz||S.pending||off);$('#trade').disabled=!!(bz||S.pending||off||S.teams.length<2);
+  const q=$('#qlay');if(q)q.classList.toggle('ro',!turn);
+  if(S.offer){const y=$('#yes'),n=$('#no'),w=$('#wd');if(y&&n&&w){y.hidden=n.hidden=my!==S.offer.to;w.hidden=my!==S.offer.from}}
+  if(uiMode==='sell')sellUI();
+  setMode(`${names[my]}: ${turn?'ваш ход':'ходит '+names[S.cur]}`);
+}
 function applySnap(o){
-  S={dch:[],dcc:[],...o.S};names=o.names;selected=o.selected;
+  lastSnap=o;S={dch:[],dcc:[],offer:null,...o.S};names=o.names;selected=o.selected;
   $('#d1').textContent=o.d1;$('#d2').textContent=o.d2;mark();
-  $('#card').innerHTML=o.card;
+  if(isTeam()&&S.offer&&S.offer.to===myTeam)uiMode=null;
+  if(!(isTeam()&&uiMode))$('#card').innerHTML=o.card;
   if(o.q){let d=$('#qlay');if(!d){d=document.createElement('section');d.className='panel card qlay';d.id='qlay';$('#board').appendChild(d)}d.innerHTML=o.q}
   else{const d=$('#qlay');if(d)d.remove()}
-  setMode('Просмотр. Обновлено '+new Date().toLocaleTimeString('ru-RU'));
+  if(isTeam())teamControls(o);else setMode('Просмотр. Обновлено '+new Date().toLocaleTimeString('ru-RU'));
 }
 function restore(o){
-  S={...o.S,pending:false,dch:shuffle(CHANCE.map((_,k)=>k)),dcc:shuffle(CHEST.map((_,k)=>k))};names=o.names;selected=o.selected;
+  S={offer:null,...o.S,pending:false,dch:shuffle(CHANCE.map((_,k)=>k)),dcc:shuffle(CHEST.map((_,k)=>k))};names=o.names;selected=o.selected;
   $('#nteams').value=S.teams.length;build();$('#d1').textContent=o.d1;$('#d2').textContent=o.d2;mark();$('#card').innerHTML=o.card;
+  if(S.offer)showOffer();
+}
+function runCmd(t,c){
+  if(viewer||!S||!S.teams[t]||!c||typeof c.act!=='string')return;
+  const cur=S.cur===t;
+  switch(c.act){
+    case 'roll':if(cur)$('#roll').click();break;
+    case 'end':if(cur)$('#end').click();break;
+    case 'ans':if(cur){const b=document.querySelectorAll('#qlay .opt')[+c.i];if(b&&!b.disabled)b.click()}break;
+    case 'nobuy':if(cur){const b=$('#nobuy');if(b)b.click()}break;
+    case 'close':if(cur){const b=$('#qclose');if(b)b.click()}break;
+    case 'sell':sellDo(t,+c.i);break;
+    case 'offer':makeOffer(t,+c.t,c.gi,c.ri,c.gm,c.rm);break;
+    case 'accept':if(S.offer&&S.offer.to===t)resolveOffer(true);break;
+    case 'decline':if(S.offer&&S.offer.to===t)resolveOffer(false);break;
+    case 'cancel':if(S.offer&&S.offer.from===t)resolveOffer(false,true);break;
+  }
 }
 function connect(){
-  const cfg=window.FIREBASE_CONFIG;
-  try{const k=new URL(location.href).searchParams.get('key');if(k){localStorage.setItem('monopoly_key',k);history.replaceState(null,'',location.pathname)}
-      fbKey=localStorage.getItem('monopoly_key');if(/[?&]view=1/.test(location.search))fbKey=null}catch(e){}
+  const cfg=window.FIREBASE_CONFIG;let tm=null;
+  try{const sp=new URL(location.href).searchParams,k=sp.get('key'),t=sp.get('team');
+      if(t&&k){localStorage.setItem('monopoly_team',JSON.stringify({n:+t,key:k}));localStorage.removeItem('monopoly_key')}
+      else if(k){localStorage.setItem('monopoly_key',k);localStorage.removeItem('monopoly_team')}
+      if(t||k)history.replaceState(null,'',location.pathname);
+      fbKey=localStorage.getItem('monopoly_key');const ts=localStorage.getItem('monopoly_team');if(!fbKey&&ts)tm=JSON.parse(ts);
+      if(/[?&]view=1/.test(location.search)){fbKey=null;tm=null}}catch(e){}
   if(!cfg||typeof firebase==='undefined'){setMode('Локальный режим: игра только на этом устройстве');return}
   try{firebase.initializeApp(cfg);db=firebase.database()}catch(e){setMode('Нет связи с базой');return}
   viewer=!fbKey;
-  if(viewer){document.body.classList.add('viewer');setMode('Просмотр. Ждём ведущего…');mark()}
+  if(viewer){document.body.classList.add('viewer');setMode('Просмотр. Ждём ведущего…');
+    if(tm&&tm.n>=1&&tm.n<=4){myTeam=tm.n-1;teamKey=tm.key;document.body.classList.add('team');
+      $('#roll').onclick=()=>send({act:'roll'});$('#end').onclick=()=>send({act:'end'});setMode('Команда '+tm.n+'. Ждём ведущего…')}
+    mark()}
   else setMode('Ведущий: синхронизация включена');
   let first=true;
   db.ref('monopoly/json').on('value',s=>{let o=null;try{o=s.val()?JSON.parse(s.val()):null}catch(e){}
-    if(viewer){if(o&&o.S)applySnap(o);else setMode('Просмотр. Ведущий ещё не начал игру');return}
+    if(viewer){if(o&&o.S)applySnap(o);else if(!isTeam())setMode('Просмотр. Ведущий ещё не начал игру');return}
     if(!first)return;first=false;if(o&&o.S)restore(o);else push()},()=>setMode('Нет доступа к игре'));
+  if(!viewer){const lastN={};for(let n=1;n<=4;n++){let f=true;
+    db.ref('monopoly/cmd'+n+'/c').on('value',s=>{let c=null;try{c=s.val()?JSON.parse(s.val()):null}catch(e){}
+      if(f){f=false;lastN[n]=c&&c.n;return}
+      if(c&&c.n!==lastN[n]){lastN[n]=c.n;runCmd(n-1,c)}})}}
 }
+document.addEventListener('click',e=>{
+  if(!isTeam())return;const b=e.target.closest('[data-cmd]');if(!b||b.disabled)return;const cmd=b.dataset.cmd;
+  if(['ans','nobuy','close'].includes(cmd)&&S.cur!==myTeam)return;
+  const c={act:cmd};if(b.dataset.i!==undefined)c.i=+b.dataset.i;send(c)});
 document.addEventListener('change',()=>push());document.addEventListener('input',()=>push());
 start();connect();
 </script>

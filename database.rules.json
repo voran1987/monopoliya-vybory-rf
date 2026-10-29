@@ -1,20 +1,62 @@
 {
   "rules": {
-    "secret": { ".read": false, ".write": false },
-    "board": {
+    "secret": {
       ".read": false,
-      "json": { ".read": true },
-      ".write": "newData.child('key').val() === root.child('secret').val()"
-    },
-    "koleso": {
-      ".read": false,
-      "json": { ".read": true },
-      ".write": "newData.child('key').val() === root.child('secret').val()"
+      ".write": false
     },
     "monopoly": {
       ".read": false,
-      "json": { ".read": true },
-      ".write": "newData.child('key').val() === root.child('secret').val()"
+      "json": {
+        ".read": true
+      },
+      ".write": "newData.child('key').exists() && newData.child('key').val() === root.child('secret').val()",
+      "key": {
+        ".write": "!newData.exists()"
+      },
+      "cmd1": {
+        ".read": false,
+        "c": {
+          ".read": true,
+          ".validate": "newData.isString() && newData.val().length < 3000"
+        },
+        ".write": "newData.child('key').exists() && newData.child('key').val() === root.child('team1').val()",
+        "key": {
+          ".write": "!newData.exists()"
+        }
+      },
+      "cmd2": {
+        ".read": false,
+        "c": {
+          ".read": true,
+          ".validate": "newData.isString() && newData.val().length < 3000"
+        },
+        ".write": "newData.child('key').exists() && newData.child('key').val() === root.child('team2').val()",
+        "key": {
+          ".write": "!newData.exists()"
+        }
+      },
+      "cmd3": {
+        ".read": false,
+        "c": {
+          ".read": true,
+          ".validate": "newData.isString() && newData.val().length < 3000"
+        },
+        ".write": "newData.child('key').exists() && newData.child('key').val() === root.child('team3').val()",
+        "key": {
+          ".write": "!newData.exists()"
+        }
+      },
+      "cmd4": {
+        ".read": false,
+        "c": {
+          ".read": true,
+          ".validate": "newData.isString() && newData.val().length < 3000"
+        },
+        ".write": "newData.child('key').exists() && newData.child('key').val() === root.child('team4').val()",
+        "key": {
+          ".write": "!newData.exists()"
+        }
+      }
     }
   }
 }
