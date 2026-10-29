@@ -274,7 +274,7 @@ let S, names=[...NAMES], selected=0, busy=false;
 let viewer=false, db=null, fbKey=null, pushT=null, errShown=false, myTeam=-1, teamKey=null, uiMode=null, lastSnap=null;
 function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function fresh(n){
-  S={teams:Array.from({length:n},()=>({pos:0,score:15})),cur:0,rolled:false,pending:false,owner:Array(40).fill(-1),offer:null,debt:null,
+  S={teams:Array.from({length:n},()=>({pos:0,score:15})),cur:0,rolled:false,pending:false,owner:Array(40).fill(-1),offer:null,debt:null,want:null,
      dch:shuffle(CHANCE.map((_,k)=>k)),dcc:shuffle(CHEST.map((_,k)=>k)),log:[]};
 }
 function build(){
@@ -338,7 +338,16 @@ function info(i){const c=C[i];if(buyable(i)&&S.owner[i]<0)return `<p class="smal
   if(buyable(i)){const o=S.owner[i];
     h+=`<p class="small"><span class="price">цена ${price(i)}</span>аренда ${rentNow(i)}${full(i)?' (×2: вся группа у владельца)':''}${o>=0?` · владелец: ${names[o]}`:' · свободен'}</p>`}
   return h}
-function card(i){$('#card').innerHTML=head(i)+info(i)}
+function wantHtml(){const i=S.want;if(i==null)return '';const k=S.cur,p=price(i),sc=S.teams[k].score,ok=sc>=p;
+  return `<div class="verdict ${ok?'':'bad'}" id="wantbox">${ok?`Теперь хватает мандатов (${sc} из ${p}). Можно ответить на вопрос и купить «${C[i][2]}».`:`Не хватает мандатов на «${C[i][2]}»: нужно ${p}, у вас ${sc}. Продайте или обменяйте имущество, и команда получит право ответить на вопрос и купить округ.`}</div><div class="act">${ok?'<button class="btn hot" id="buy" data-cmd="buy">Ответить и купить</button>':''}<button class="btn alt" id="skipbuy" data-cmd="skipbuy">Отказаться</button></div>`}
+function wantBind(){if(viewer)return;const b=$('#buy'),s=$('#skipbuy');if(b)b.onclick=doBuy;if(s)s.onclick=skipBuy}
+function doBuy(){if(S.want==null||busy||S.pending||S.offer||S.debt)return;const i=S.want;
+  if(S.teams[S.cur].score<price(i)){card(i);return}
+  S.want=null;quiz(i)}
+function skipBuy(){if(S.want==null||busy||S.pending||S.offer||S.debt)return;const i=S.want;S.want=null;
+  log(`${names[S.cur]} отказывается от «${C[i][2]}»`);card(i);mark()}
+function refreshWant(){if(S.want!=null&&!S.pending&&!S.offer&&!S.debt&&!uiMode){card(S.want);mark()}}
+function card(i){$('#card').innerHTML=head(i)+info(i)+(S.want===i?wantHtml():'');wantBind()}
 function openQ(h){closeQ();const d=document.createElement('section');d.className='panel card qlay';d.id='qlay';d.innerHTML=h;$('#board').appendChild(d);return d}
 function closeQ(){const d=$('#qlay');if(d)d.remove();push()}
 function options(list,onPick){
@@ -383,8 +392,8 @@ function land(i){
 function quiz(i){
   const c=C[i],k=S.cur,p=price(i);
   if(S.teams[k].score<p){log(`${names[k]}: не хватает мандатов на «${c[2]}»`);
-    $('#card').innerHTML=head(i)+`<p>Не хватает мандатов на покупку (нужно ${p}, у вас ${S.teams[k].score}).</p>`;mark();return}
-  S.pending=true;
+    S.want=i;card(i);mark();return}
+  S.want=null;S.pending=true;
   openQ(head(i)+`<p><span class="price">цена ${p}</span>${names[k]}: ответьте верно, чтобы занять округ. У вас ${S.teams[k].score} мандатов.</p><p><b>${c[6]}</b></p><div id="qbox"></div><div class="act" id="qact"><button class="btn alt" id="nobuy" data-cmd="nobuy">Не покупать</button></div>`);
   $('#card').innerHTML=head(i)+'<p class="small">Вопрос открыт в центре поля.</p>';
   $('#qbox').appendChild(options(c[7],ok=>{
@@ -417,7 +426,7 @@ function draw(t){
     mark()}));
   mark();
 }
-function endTurn(){if(!S.rolled||S.pending||busy||S.debt)return;closeQ();S.cur=(S.cur+1)%S.teams.length;S.rolled=false;$('#d1').textContent='·';$('#d2').textContent='·';selected=S.teams[S.cur].pos;card(selected);mark()}
+function endTurn(){if(!S.rolled||S.pending||busy||S.debt)return;closeQ();if(S.want!=null){log(`${names[S.cur]} не покупает «${C[S.want][2]}»`);S.want=null}S.cur=(S.cur+1)%S.teams.length;S.rolled=false;$('#d1').textContent='·';$('#d2').textContent='·';selected=S.teams[S.cur].pos;card(selected);mark()}
 function finish(){closeQ();
   const rows=S.teams.map((t,k)=>{const v=S.owner.reduce((a,o,i)=>a+(o===k?price(i):0),0);return{k,s:t.score,v,n:S.owner.filter(o=>o===k).length,tot:t.score+v}}).sort((a,b)=>b.tot-a.tot);
   $('#card').innerHTML=`<div class="hd" style="--g:var(--ink);--hc:var(--bg)"><small>Итоги</small><h2>Подведение итогов</h2></div>
@@ -488,7 +497,7 @@ function resolveOffer(ok,wd){
     if(o.gi.some(i=>S.owner[i]!==k)||o.ri.some(i=>S.owner[i]!==t)||o.gm>S.teams[k].score||o.rm>S.teams[t].score){log('Обмен не состоялся: условия изменились');card(selected)}
     else{o.gi.forEach(i=>S.owner[i]=t);o.ri.forEach(i=>S.owner[i]=k);S.teams[k].score+=o.rm-o.gm;S.teams[t].score+=o.gm-o.rm;
       log(`Обмен: ${names[k]} (${lstOf(o.gi,o.gm)}) ⇄ ${names[t]} (${lstOf(o.ri,o.rm)})`);
-      $('#card').innerHTML=bank('Обмен','Обмен состоялся')+`<div class="verdict">Договор исполнен: округа и мандаты перешли к новым владельцам.</div>`}
+      $('#card').innerHTML=bank('Обмен','Обмен состоялся')+`<div class="verdict">Договор исполнен: округа и мандаты перешли к новым владельцам.</div>`+wantHtml();wantBind()}
   }else{log(wd?`${names[k]} отзывает предложение обмена`:`${names[t]} отклоняет обмен с ${names[k]}`);card(selected)}
   mark();
 }
@@ -542,13 +551,14 @@ function teamControls(o){
   $('#end').disabled=!(turn&&S.rolled&&!S.pending&&!off&&!bz);
   $('#sell').disabled=!!(bz||S.pending||off);$('#trade').disabled=!!(bz||S.pending||off||S.teams.length<2);
   const q=$('#qlay');if(q)q.classList.toggle('ro',!turn);
+  document.querySelectorAll('#card [data-cmd="buy"],#card [data-cmd="skipbuy"]').forEach(b=>b.hidden=!turn);
   if(S.debt)document.querySelectorAll('#card [data-cmd="dsell"],#card .trow').forEach(b=>{if(b.matches('button'))b.hidden=my!==S.debt.k});
   if(S.offer){const y=$('#yes'),n=$('#no'),w=$('#wd');if(y&&n&&w){y.hidden=n.hidden=my!==S.offer.to;w.hidden=my!==S.offer.from}}
   if(uiMode==='sell')sellUI();
   setMode(`${names[my]}: ${turn?'ваш ход':'ходит '+names[S.cur]}`);
 }
 function applySnap(o){
-  lastSnap=o;S={dch:[],dcc:[],offer:null,debt:null,...o.S};names=o.names;selected=o.selected;
+  lastSnap=o;S={dch:[],dcc:[],offer:null,debt:null,want:null,...o.S};names=o.names;selected=o.selected;
   $('#d1').textContent=o.d1;$('#d2').textContent=o.d2;mark();
   if(isTeam()&&((S.offer&&S.offer.to===myTeam)||(S.debt&&S.debt.k===myTeam)))uiMode=null;
   if(!(isTeam()&&uiMode))$('#card').innerHTML=o.card;
@@ -557,8 +567,9 @@ function applySnap(o){
   if(isTeam())teamControls(o);else setMode('Просмотр. Обновлено '+new Date().toLocaleTimeString('ru-RU'));
 }
 function restore(o){
-  S={offer:null,debt:null,...o.S,pending:false,dch:shuffle(CHANCE.map((_,k)=>k)),dcc:shuffle(CHEST.map((_,k)=>k))};names=o.names;selected=o.selected;
+  S={offer:null,debt:null,want:null,...o.S,pending:false,dch:shuffle(CHANCE.map((_,k)=>k)),dcc:shuffle(CHEST.map((_,k)=>k))};names=o.names;selected=o.selected;
   $('#nteams').value=S.teams.length;build();$('#d1').textContent=o.d1;$('#d2').textContent=o.d2;mark();$('#card').innerHTML=o.card;
+  wantBind();
   if(S.offer)showOffer();
   if(S.debt)showDebt();
 }
@@ -571,7 +582,9 @@ function runCmd(t,c){
     case 'ans':if(cur){const b=document.querySelectorAll('#qlay .opt')[+c.i];if(b&&!b.disabled)b.click()}break;
     case 'nobuy':if(cur){const b=$('#nobuy');if(b)b.click()}break;
     case 'close':if(cur){const b=$('#qclose');if(b)b.click()}break;
-    case 'sell':sellDo(t,+c.i);break;
+    case 'sell':sellDo(t,+c.i);refreshWant();break;
+    case 'buy':if(cur)doBuy();break;
+    case 'skipbuy':if(cur)skipBuy();break;
     case 'offer':makeOffer(t,+c.t,c.gi,c.ri,c.gm,c.rm);break;
     case 'dsell':if(S.debt&&S.debt.k===t)debtSell(+c.i);break;
     case 'accept':if(S.offer&&S.offer.to===t)resolveOffer(true);break;
@@ -606,7 +619,7 @@ function connect(){
 }
 document.addEventListener('click',e=>{
   if(!isTeam())return;const b=e.target.closest('[data-cmd]');if(!b||b.disabled)return;const cmd=b.dataset.cmd;
-  if(['ans','nobuy','close'].includes(cmd)&&S.cur!==myTeam)return;
+  if(['ans','nobuy','close','buy','skipbuy'].includes(cmd)&&S.cur!==myTeam)return;
   const c={act:cmd};if(b.dataset.i!==undefined)c.i=+b.dataset.i;send(c)});
 document.addEventListener('change',()=>push());document.addEventListener('input',()=>push());
 start();connect();
