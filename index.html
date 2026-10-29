@@ -274,7 +274,7 @@ let S, names=[...NAMES], selected=0, busy=false;
 let viewer=false, db=null, fbKey=null, pushT=null, errShown=false, myTeam=-1, teamKey=null, uiMode=null, lastSnap=null;
 function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function fresh(n){
-  S={teams:Array.from({length:n},()=>({pos:0,score:12})),cur:0,rolled:false,pending:false,owner:Array(40).fill(-1),offer:null,
+  S={teams:Array.from({length:n},()=>({pos:0,score:15})),cur:0,rolled:false,pending:false,owner:Array(40).fill(-1),offer:null,
      dch:shuffle(CHANCE.map((_,k)=>k)),dcc:shuffle(CHEST.map((_,k)=>k)),log:[]};
 }
 function build(){
